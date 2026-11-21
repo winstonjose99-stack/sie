@@ -72,9 +72,20 @@ if (!function_exists('enviarNotificacionWhatsApp')) {
             ],
         ]);
 
-        $response = curl_exec($ch);
-        $curlErr  = curl_error($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $response  = curl_exec($ch);
+        $curlErrno = curl_errno($ch);
+        $curlErr   = curl_error($ch);
+        $httpCode  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        // Fallback para XAMPP en Windows cuando curl.cainfo no está configurado en php.ini
+        if ($response === false && in_array($curlErrno, [60, 77], true)) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            $response  = curl_exec($ch);
+            $curlErrno = curl_errno($ch);
+            $curlErr   = curl_error($ch);
+            $httpCode  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        }
+
         curl_close($ch);
 
         if ($response === false || $curlErr !== '') {
