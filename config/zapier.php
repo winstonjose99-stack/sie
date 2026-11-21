@@ -8,12 +8,12 @@
  */
 
 if (!defined('ZAPIER_WEBHOOK_URL_DEFAULT')) {
-    define('ZAPIER_WEBHOOK_URL_DEFAULT', 'https://hooks.zapier.com/hooks/catch/TU_ID/TU_HOOK/');
+    define('ZAPIER_WEBHOOK_URL_DEFAULT', 'https://hooks.zapier.com/hooks/catch/29530375/45l3oxg/');
 }
 
 if (!function_exists('obtenerZapierWebhookUrl')) {
     function obtenerZapierWebhookUrl(): string {
-        $envUrl = getenv('ZAPIER_WEBHOOK_URL');
+        $envUrl = getenv('ZAPIER_WEBHOOK_URL') ?: ($_ENV['ZAPIER_WEBHOOK_URL'] ?? ($_SERVER['ZAPIER_WEBHOOK_URL'] ?? ''));
         if (!empty($envUrl)) {
             return trim((string) $envUrl);
         }

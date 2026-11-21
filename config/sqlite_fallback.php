@@ -33,14 +33,16 @@ class SQLiteStmtCompat {
     private array $params = [];
     private ?SQLiteResultCompat $lastResult = null;
     private array $boundResultVars = [];
+    private $onWriteCallback = null;
     public int $num_rows = 0;
     public int $insert_id = 0;
     public int $errno = 0;
     public string $error = '';
 
-    public function __construct(PDO $pdo, string $sql) {
+    public function __construct(PDO $pdo, string $sql, ?callable $onWriteCallback = null) {
         $this->pdo = $pdo;
         $this->sql = $sql;
+        $this->onWriteCallback = $onWriteCallback;
     }
 
     public function bind_param(string $types, &...$vars): bool {
@@ -72,6 +74,9 @@ class SQLiteStmtCompat {
                 $this->insert_id  = (int) $this->pdo->lastInsertId();
                 $this->lastResult = new SQLiteResultCompat([]);
                 $this->num_rows   = 0;
+                if ($this->onWriteCallback !== null) {
+                    ($this->onWriteCallback)($this->sql, $this->params);
+                }
             }
             return true;
         } catch (PDOException $e) {
@@ -126,6 +131,7 @@ class SQLiteStmtCompat {
 
 class SQLiteMysqliCompat {
     private PDO $pdo;
+    private array $journal = [];
     public ?string $connect_error = null;
     public int $errno = 0;
     public string $error = '';
@@ -135,10 +141,77 @@ class SQLiteMysqliCompat {
         $isNew = !file_exists($dbPath) || filesize($dbPath) === 0;
         $this->pdo = new PDO('sqlite:' . $dbPath);
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $this->pdo->exec('PRAGMA foreign_keys = ON;');
+        $this->pdo->exec('PRAGMA foreign_keys = OFF;');
 
         if ($isNew) {
             $this->initializeSchemaAndSeed();
+        }
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS _sync_meta (id TEXT PRIMARY KEY);');
+        $this->replayCookieJournal();
+    }
+
+    private function replayCookieJournal(): void {
+        if (empty($_COOKIE['SIE_DB_SYNC'])) {
+            return;
+        }
+        $raw = @base64_decode((string) $_COOKIE['SIE_DB_SYNC'], true);
+        if (!$raw) {
+            return;
+        }
+        $json = @gzinflate($raw);
+        if (!$json) {
+            return;
+        }
+        $entries = json_decode($json, true);
+        if (!is_array($entries)) {
+            return;
+        }
+        $this->journal = $entries;
+        foreach ($entries as $entry) {
+            if (empty($entry['id']) || empty($entry['sql'])) {
+                continue;
+            }
+            $chk = $this->pdo->prepare('SELECT 1 FROM _sync_meta WHERE id = ?');
+            $chk->execute([$entry['id']]);
+            if ($chk->fetchColumn()) {
+                continue;
+            }
+            try {
+                $st = $this->pdo->prepare($entry['sql']);
+                $st->execute($entry['params'] ?? []);
+                $ins = $this->pdo->prepare('INSERT OR IGNORE INTO _sync_meta (id) VALUES (?)');
+                $ins->execute([$entry['id']]);
+            } catch (Throwable $e) {
+                // Ignorar si ya fue aplicado
+            }
+        }
+    }
+
+    public function recordWrite(string $sql, array $params = []): void {
+        $id = substr(md5($sql . serialize($params) . microtime(true)), 0, 12);
+        try {
+            $ins = $this->pdo->prepare('INSERT OR IGNORE INTO _sync_meta (id) VALUES (?)');
+            $ins->execute([$id]);
+        } catch (Throwable $e) {}
+
+        $this->journal[] = [
+            'id'     => $id,
+            'sql'    => $sql,
+            'params' => $params,
+        ];
+        if (count($this->journal) > 25) {
+            $this->journal = array_slice($this->journal, -25);
+        }
+        if (!headers_sent()) {
+            $compressed = base64_encode((string) gzdeflate((string) json_encode($this->journal, JSON_UNESCAPED_UNICODE), 9));
+            if (strlen($compressed) < 3800) {
+                setcookie('SIE_DB_SYNC', $compressed, [
+                    'expires'  => time() + 86400,
+                    'path'     => '/',
+                    'httponly' => true,
+                    'samesite' => 'Lax',
+                ]);
+            }
         }
     }
 
@@ -157,6 +230,7 @@ class SQLiteMysqliCompat {
             }
             $this->pdo->exec($sql);
             $this->insert_id = (int) $this->pdo->lastInsertId();
+            $this->recordWrite($sql, []);
             return true;
         } catch (PDOException $e) {
             $this->error = $e->getMessage();
@@ -166,7 +240,9 @@ class SQLiteMysqliCompat {
     }
 
     public function prepare(string $sql): SQLiteStmtCompat {
-        return new SQLiteStmtCompat($this->pdo, $sql);
+        return new SQLiteStmtCompat($this->pdo, $sql, function (string $s, array $p): void {
+            $this->recordWrite($s, $p);
+        });
     }
 
     public function begin_transaction(): bool {

@@ -123,11 +123,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $enviarAlerta = false;
         if ($existente) {
             $id_ina = (int) $existente['id_inasistencia'];
-            $estadoPrevio = $existente['estado'] ?? 'Presente';
             $stmt_update->bind_param("ssii", $estado_bd, $motivo_bd, $id_docente, $id_ina);
             if ($stmt_update->execute()) {
                 $actualizadas++;
-                if ($estadoPrevio === 'Presente' && in_array($estado_bd, ['Ausente', 'Justificado'], true)) {
+                if (in_array($estado_bd, ['Ausente', 'Justificado'], true)) {
                     $enviarAlerta = true;
                 }
             }
@@ -141,7 +140,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
 
-        // Enviar datos a Zapier (HTTP POST JSON) y notificación de WhatsApp cuando hay una nueva inasistencia
+        // Enviar datos a Zapier (HTTP POST JSON) y notificación de WhatsApp cuando se marca inasistencia
         if ($enviarAlerta) {
             $nombre_estudiante    = trim($info['est_nombre'] . ' ' . $info['est_apellido']);
             $nombre_representante = trim(($info['rep_nombre'] ?? '') . ' ' . ($info['rep_apellido'] ?? '')) ?: 'Representante';
@@ -188,6 +187,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $waEnviados++;
                 } else {
                     $waFallidos++;
+                    $ultimoErrorWa = $wa['error'];
                 }
             }
         }
@@ -213,7 +213,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $resumen .= ". Notificaciones WhatsApp enviadas: {$waEnviados}";
     }
     if ($waFallidos > 0) {
-        $resumen .= ". Aviso: {$waFallidos} notificación(es) de WhatsApp no pudieron enviarse.";
+        $detalleErr = !empty($ultimoErrorWa) ? " ({$ultimoErrorWa})" : "";
+        $resumen .= ". Aviso WhatsApp: {$waFallidos} no enviada(s){$detalleErr}.";
     }
 
     $urlDestino = "asistencias_guardadas.php?id_seccion={$id_seccion}&id_materia={$id_materia}&fecha=" . urlencode($fecha);

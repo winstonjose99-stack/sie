@@ -6,8 +6,8 @@
  */
 
 $whatsappConfig = [
-    'token'        => getenv('WHATSAPP_TOKEN') ?: '',
-    'phone_id'     => getenv('WHATSAPP_PHONE_ID') ?: '',
+    'token'        => getenv('WHATSAPP_TOKEN') ?: ($_ENV['WHATSAPP_TOKEN'] ?? ($_SERVER['WHATSAPP_TOKEN'] ?? '')),
+    'phone_id'     => getenv('WHATSAPP_PHONE_ID') ?: ($_ENV['WHATSAPP_PHONE_ID'] ?? ($_SERVER['WHATSAPP_PHONE_ID'] ?? '1302759226262262')),
     'api_version'  => getenv('WHATSAPP_API_VERSION') ?: 'v25.0',
 ];
 
@@ -102,6 +102,9 @@ if (!function_exists('enviarNotificacionWhatsApp')) {
         if (!$ok) {
             $decoded = json_decode($response, true);
             $errorMsg = $decoded['error']['message'] ?? ("HTTP {$httpCode}");
+            error_log("WhatsApp API Error [{$telefono}] HTTP {$httpCode}: {$response}");
+        } else {
+            error_log("WhatsApp API OK [{$telefono}] HTTP {$httpCode}: {$response}");
         }
 
         return [
