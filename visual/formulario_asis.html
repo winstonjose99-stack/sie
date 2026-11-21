@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <link rel="stylesheet" href="../css/estilos.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Asistencia</title>
+</head>
+<body>
+    <h2>Formulario de Asistencia</h2>
+
+<div>
+    <form action="../api/registrar_asistencia.php" method="POST">
+        <div>
+            <label for="id_estudiante">ID Estudiante:</label>
+            <input type="number" id="id_estudiante" name="id_estudiante" required>
+        </div>
+        <br>
+
+        <div>
+            <label for="fecha">Fecha:</label>
+            <input type="date" id="fecha" name="fecha" required>
+        </div>
+        <br>
+
+        <div>
+            <label for="estado">Estado:</label>
+            <select id="estado" name="estado" required>
+                <option value="Presente">Presente</option>
+                <option value="Ausente">Ausente</option>
+                <option value="Tarde">Tarde</option>
+            </select>
+        </div>
+        <br>
+
+        <button type="submit">Registrar</button>
+    </form>
+</div>
+</body>
+</html>

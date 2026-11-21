@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <link rel="stylesheet" href="../css/estilos.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Administración</title>
+</head>
+<body>
+    <header class="header-fijo">
+        <div class="logo">
+            <img src="logo.png" alt="Logo">
+        </div>
+        <h2>PORTAL ADMINISTRATIVO</h2>
+        <nav>
+            <ul>
+                <li><a href="inicio.html">Inicio</a></li>
+                <li><a href="login_profesor.php">Portal Docente</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="auth-wrapper">
+        <div class="auth-card">
+            <h2>Iniciar Sesión</h2>
+            <p class="auth-subtitle">Ingrese sus credenciales administrativas para gestionar el sistema escolar.</p>
+
+            <form action="../api/login.php" method="POST">
+                <div>
+                    <label for="usuario">Usuario Administrativo:</label>
+                    <input type="text" id="usuario" name="usuario" placeholder="Ej. admin_escolar" required>
+                </div>
+
+                <div>
+                    <label for="contrasena">Contraseña:</label>
+                    <input type="password" id="contrasena" name="contrasena" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit">Entrar al Panel</button>
+            </form>
+
+            <div class="auth-footer">
+                <span>¿No dispone de una cuenta administrativa? <a href="registro.html">Registrarse aquí</a></span>
+                <span>¿Es usted profesor? <a href="login_profesor.php">Ir al Portal Docente</a></span>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
