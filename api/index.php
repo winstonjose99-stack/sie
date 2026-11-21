@@ -1,5 +1,7 @@
 <?php
-// Enrutador Serverless para Vercel: permite ejecutar index.php y visual/*.php a través del runtime PHP en api/
+// Punto de entrada Serverless para Vercel (api/index.php)
+// Ejecuta index.php y las vistas PHP de visual/ dentro del runtime PHP de Vercel.
+
 $route = $_GET['__route'] ?? 'index.php';
 
 $allowedRoutes = [
