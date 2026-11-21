@@ -1,11 +1,33 @@
 <?php
-// Punto de entrada Serverless para Vercel (api/index.php)
-// Ejecuta index.php y las vistas PHP de visual/ dentro del runtime PHP de Vercel.
+// Punto de entrada único Serverless para Vercel (1 sola Lambda compatible con el plan Hobby).
+// Ejecuta index.php, api/*.php y visual/*.php conservando sus directorios de trabajo.
 
 $route = $_GET['__route'] ?? 'index.php';
+$route = ltrim(str_replace('\\', '/', $route), '/');
 
 $allowedRoutes = [
     'index.php',
+    // Endpoints en api/
+    'api/actualizar.php',
+    'api/dashboard.php',
+    'api/eliminar.php',
+    'api/enviar_mensaje.php',
+    'api/generar_pdf.php',
+    'api/login.php',
+    'api/logout.php',
+    'api/procesar_login_profesor.php',
+    'api/promover_periodo.php',
+    'api/registrar_asistencia.php',
+    'api/registrar_estudiante.php',
+    'api/registrar_institucion.php',
+    'api/registrar_materia.php',
+    'api/registrar_representante.php',
+    'api/registrar_seccion.php',
+    'api/registro.php',
+    'api/registro_docente.php',
+    'api/ver_estudiantes_seccion.php',
+    'api/webhook_zapier.php',
+    // Vistas en visual/
     'visual/admin_periodos.php',
     'visual/ainstitucion.php',
     'visual/asistencias_guardadas.php',
@@ -50,7 +72,10 @@ if (!file_exists($targetFile)) {
     exit();
 }
 
-header('Content-Type: text/html; charset=utf-8');
+if ($route !== 'api/generar_pdf.php') {
+    header('Content-Type: text/html; charset=utf-8');
+}
+
 chdir(dirname($targetFile));
 require $targetFile;
 ?>
