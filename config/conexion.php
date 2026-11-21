@@ -7,20 +7,93 @@ $usuario    = getenv('DB_USER') ?: 'root';
 $contrasena = getenv('DB_PASS') ?: '';
 $base_datos = getenv('DB_NAME') ?: 'sistema_asistencias';
 
-$conn = new mysqli($servidor, $usuario, $contrasena, $base_datos);
-if ($conn->connect_error) {
-    die("Error de conexión a la base de datos.");
+$conn = null;
+$esEntornoVercel = !empty(getenv('VERCEL')) || !empty($_SERVER['VERCEL']);
+
+// Si estamos en local (XAMPP) o se configuró un DB_HOST remoto explícito, intentamos MySQL primero
+if (!$esEntornoVercel || (getenv('DB_HOST') && getenv('DB_HOST') !== 'localhost')) {
+    $mysqliConn = @new mysqli($servidor, $usuario, $contrasena, $base_datos);
+    if (!$mysqliConn->connect_error) {
+        $mysqliConn->set_charset("utf8mb4");
+        $conn = $mysqliConn;
+    }
 }
 
-$conn->set_charset("utf8mb4");
+// Fallback automático a SQLite precargado cuando se ejecuta en Vercel Serverless sin MySQL externo
+if ($conn === null) {
+    require_once __DIR__ . '/sqlite_fallback.php';
+    $sqlitePath = rtrim(sys_get_temp_dir(), '/\\') . '/sistema_asistencias_v1.sqlite';
+    $conn = new SQLiteMysqliCompat($sqlitePath);
+}
 
 // Alias de compatibilidad
 $conexion = $conn;
 
+if (!defined('SIE_COOKIE_SECRET')) {
+    define('SIE_COOKIE_SECRET', getenv('WHATSAPP_PHONE_ID') ?: 'sie_escolar_secret_key_2026');
+}
+
+if (!function_exists('sincronizarCookieSesion')) {
+    function sincronizarCookieSesion(): void {
+        if (headers_sent()) {
+            return;
+        }
+        $payload = [];
+        if (isset($_SESSION['id'])) {
+            $payload['id']      = (int) $_SESSION['id'];
+            $payload['usuario'] = (string) ($_SESSION['usuario'] ?? 'Administrador');
+        }
+        if (isset($_SESSION['id_docente'])) {
+            $payload['id_docente']     = (int) $_SESSION['id_docente'];
+            $payload['nombre_docente'] = (string) ($_SESSION['nombre_docente'] ?? 'Profesor');
+        }
+        if (empty($payload)) {
+            return;
+        }
+        $dataB64 = base64_encode(json_encode($payload, JSON_UNESCAPED_UNICODE));
+        $sig     = hash_hmac('sha256', $dataB64, SIE_COOKIE_SECRET);
+        setcookie('SIE_AUTH', $dataB64 . '.' . $sig, [
+            'expires'  => time() + 86400,
+            'path'     => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+}
+
+if (!function_exists('limpiarCookieSesion')) {
+    function limpiarCookieSesion(): void {
+        if (!headers_sent()) {
+            setcookie('SIE_AUTH', '', [
+                'expires'  => time() - 42000,
+                'path'     => '/',
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        }
+    }
+}
+
 if (!function_exists('iniciarSesionSegura')) {
     function iniciarSesionSegura(): void {
         if (session_status() === PHP_SESSION_NONE) {
-            session_start();
+            @session_start();
+        }
+        // Restaurar sesión desde cookie firmada en entornos Serverless (Vercel) si la instancia cambió
+        if (!isset($_SESSION['id']) && !isset($_SESSION['id_docente']) && !empty($_COOKIE['SIE_AUTH'])) {
+            $parts = explode('.', (string) $_COOKIE['SIE_AUTH'], 2);
+            if (count($parts) === 2) {
+                [$dataB64, $sig] = $parts;
+                $expected = hash_hmac('sha256', $dataB64, SIE_COOKIE_SECRET);
+                if (hash_equals($expected, $sig)) {
+                    $decoded = json_decode((string) base64_decode($dataB64, true), true);
+                    if (is_array($decoded)) {
+                        foreach ($decoded as $k => $v) {
+                            $_SESSION[$k] = $v;
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -46,7 +119,7 @@ if (!function_exists('verificarSesionDocente')) {
 }
 
 if (!function_exists('obtenerPeriodoActivoId')) {
-    function obtenerPeriodoActivoId(mysqli $conn): ?int {
+    function obtenerPeriodoActivoId($conn): ?int {
         $res = $conn->query("SELECT id_periodo FROM periodos_academicos WHERE activo = 1 LIMIT 1");
         if ($res && $row = $res->fetch_assoc()) {
             return (int) $row['id_periodo'];

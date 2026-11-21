@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/config/conexion.php';
+iniciarSesionSegura();
 
 // Si el administrador ya inició sesión, redirigimos a su panel de control
 if (isset($_SESSION['id'])) {

@@ -16,9 +16,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $resultado = $stmt->get_result();
 
     if ($row = $resultado->fetch_assoc()) {
-        session_regenerate_id(true);
+        @session_regenerate_id(true);
         $_SESSION['id_docente']     = (int) $row['id_docente'];
         $_SESSION['nombre_docente'] = trim($row['nombre'] . ' ' . $row['apellido']);
+        sincronizarCookieSesion();
 
         $stmt->close();
         header("Location: ../visual/panel_profesor.php");

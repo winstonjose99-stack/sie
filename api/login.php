@@ -24,9 +24,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if ($hashed_password !== null && password_verify($contrasena, $hashed_password)) {
             $autenticado = true;
-            session_regenerate_id(true);
+            @session_regenerate_id(true);
             $_SESSION['id'] = (int) $id;
             $_SESSION['usuario'] = $usuario;
+            sincronizarCookieSesion();
         }
     }
     $stmt->close();

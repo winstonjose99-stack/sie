@@ -1,11 +1,9 @@
 <?php
-// Iniciamos la sesión para poder acceder a ella
-session_start();
+require_once __DIR__ . '/../config/conexion.php';
+iniciarSesionSegura();
 
-// Destruimos todas las variables de sesión
-$_SESSION = array();
+$_SESSION = [];
 
-// Si se desea destruir la sesión completamente, borramos también la cookie de sesión
 if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
     setcookie(session_name(), '', time() - 42000,
@@ -14,8 +12,8 @@ if (ini_get("session.use_cookies")) {
     );
 }
 
-// Finalmente, destruimos la sesión
-session_destroy();
+limpiarCookieSesion();
+@session_destroy();
 
 header("Location: ../visual/inicio.html");
 exit();
