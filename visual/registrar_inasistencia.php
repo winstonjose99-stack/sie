@@ -282,104 +282,123 @@ $stmt_est->close();
     <link rel="stylesheet" href="../css/estilos.css">
     <style>
         .asistencia-wrap {
-            max-width: 1020px;
-            margin: 18px auto 90px auto;
-            padding: 0 14px;
-        }
-        .asistencia-header-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
-            text-align: left;
-        }
-        .asistencia-header-card h2 {
-            margin: 0 0 6px 0;
-            text-align: left;
-            font-size: 1.35rem;
-        }
-        .asistencia-header-card p {
-            margin: 0;
-            color: #475569;
-            font-size: 0.94rem;
+            max-width: 1040px;
+            margin: 22px auto 96px auto;
+            padding: 0 16px;
         }
         .toolbar-movil {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
+            gap: 12px;
+            align-items: flex-end;
             justify-content: space-between;
             background: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 14px 16px;
+            border-radius: 16px;
+            padding: 16px;
             margin-bottom: 14px;
-            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
         }
         .toolbar-grupo {
             display: flex;
             flex-wrap: wrap;
-            align-items: center;
+            align-items: flex-end;
             gap: 10px;
+        }
+        .toolbar-campo {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin: 0 !important;
         }
         .toolbar-movil label {
             margin: 0;
             font-weight: 700;
-            font-size: 0.9rem;
-            color: #1e293b;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #475569;
         }
         .toolbar-movil input[type="date"],
         .toolbar-movil input[type="search"] {
             margin: 0;
             min-height: 44px;
-            font-size: 0.96rem;
+            font-size: 0.94rem;
+            border-radius: 11px;
         }
         .toolbar-movil input[type="date"] {
-            max-width: 190px;
+            max-width: 185px;
             font-weight: 600;
         }
         .toolbar-movil input[type="search"] {
-            min-width: 220px;
+            min-width: 240px;
+        }
+        .toolbar-acciones {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin: 0 !important;
         }
         .btn-todos-presentes {
-            background: #dcfce7 !important;
-            color: #166534 !important;
+            background: #ecfdf5 !important;
+            color: #065f46 !important;
             border: 1px solid #86efac !important;
             padding: 10px 14px !important;
             min-height: 44px;
-            border-radius: 10px !important;
+            border-radius: 11px !important;
             font-weight: 700 !important;
-            font-size: 0.88rem !important;
+            font-size: 0.86rem !important;
             cursor: pointer;
             margin: 0 !important;
             width: auto !important;
+            box-shadow: none !important;
+            transition: background-color 0.15s ease, transform 0.12s ease;
         }
         .btn-todos-presentes:hover {
-            background: #bbf7d0 !important;
+            background: #d1fae5 !important;
+            transform: translateY(-1px);
+        }
+        .btn-todos-presentes:active {
+            transform: scale(0.97);
+        }
+        .btn-ver-guardada {
+            min-height: 44px;
+            padding: 10px 15px !important;
+            border-radius: 11px !important;
+            font-size: 0.86rem !important;
+            font-weight: 700 !important;
+            white-space: nowrap;
         }
         .resumen-vivo {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 10px;
             margin-bottom: 16px;
         }
         .resumen-pill {
             background: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 10px 12px;
+            border-top: 3px solid #cbd5e1;
+            border-radius: 14px;
+            padding: 11px 10px;
             text-align: center;
+            box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04);
         }
+        .resumen-pill.p { border-top-color: #16a34a; }
+        .resumen-pill.a { border-top-color: #dc2626; }
+        .resumen-pill.j { border-top-color: #d97706; }
         .resumen-pill .num {
             display: block;
-            font-size: 1.35rem;
+            font-size: 1.45rem;
             font-weight: 800;
-            line-height: 1.2;
+            line-height: 1.15;
+            font-variant-numeric: tabular-nums;
         }
         .resumen-pill .lbl {
-            font-size: 0.78rem;
+            display: block;
+            margin-top: 2px;
+            font-size: 0.74rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.03em;
@@ -390,78 +409,129 @@ $stmt_est->close();
 
         .alumnos-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
-            gap: 14px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 12px;
         }
         .alumno-card {
             background: #ffffff;
-            border: 1px solid #cbd5e1;
-            border-radius: 14px;
-            padding: 16px;
+            border: 1px solid #dbe4f0;
+            border-radius: 16px;
+            padding: 15px;
             text-align: left;
-            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
-            transition: border-color 0.15s ease;
+            box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
+            transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
         }
-        .alumno-card.st-presente { border-left: 5px solid #16a34a; }
-        .alumno-card.st-ausente { border-left: 5px solid #dc2626; background: #fffafb; }
-        .alumno-card.st-justificado { border-left: 5px solid #d97706; background: #fffdf5; }
-
+        .alumno-card.st-presente {
+            border-left: 4px solid #16a34a;
+        }
+        .alumno-card.st-ausente {
+            border-left: 4px solid #dc2626;
+            background: #fffafa;
+            border-color: #fecaca;
+            border-left-color: #dc2626;
+        }
+        .alumno-card.st-justificado {
+            border-left: 4px solid #d97706;
+            background: #fffdf5;
+            border-color: #fde68a;
+            border-left-color: #d97706;
+        }
         .alumno-top {
+            display: flex;
+            align-items: flex-start;
+            gap: 11px;
+            margin-bottom: 12px;
+        }
+        .alumno-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .alumno-name-row {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             gap: 8px;
-            margin-bottom: 12px;
+            flex-wrap: wrap;
         }
         .alumno-nombre {
             margin: 0;
-            font-size: 1.04rem;
+            font-size: 0.98rem;
             font-weight: 700;
             color: #0f172a;
+            line-height: 1.3;
+            word-break: break-word;
         }
         .alumno-meta {
             margin: 4px 0 0 0;
-            font-size: 0.82rem;
+            font-size: 0.79rem;
             color: #64748b;
             line-height: 1.35;
         }
+        .chip-guardado {
+            padding: 3px 9px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            border-radius: 999px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .chip-sin-guardar {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
         .botones-estado {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 7px;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 13px;
         }
         .btn-estado-tap {
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 48px;
-            padding: 8px 6px !important;
+            min-height: 44px;
+            padding: 8px 4px !important;
             border-radius: 10px !important;
-            border: 2px solid #cbd5e1 !important;
-            background: #f8fafc !important;
-            color: #334155 !important;
+            border: 1.5px solid transparent !important;
+            background: transparent !important;
+            color: #475569 !important;
             font-weight: 700 !important;
-            font-size: 0.88rem !important;
+            font-size: 0.84rem !important;
             cursor: pointer;
             margin: 0 !important;
             width: 100% !important;
             box-shadow: none !important;
-            transition: all 0.12s ease;
+            white-space: nowrap;
+            transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease, transform 0.1s ease;
+        }
+        .btn-estado-tap:hover {
+            transform: none !important;
+            filter: none !important;
+            background: rgba(255, 255, 255, 0.7) !important;
+        }
+        .btn-estado-tap:active {
+            transform: scale(0.96) !important;
         }
         .btn-estado-tap.activo-p {
-            background: #dcfce7 !important;
-            border-color: #16a34a !important;
-            color: #166534 !important;
+            background: #16a34a !important;
+            border-color: #15803d !important;
+            color: #ffffff !important;
+            box-shadow: 0 3px 10px rgba(22, 163, 74, 0.25) !important;
         }
         .btn-estado-tap.activo-a {
-            background: #fee2e2 !important;
-            border-color: #dc2626 !important;
-            color: #991b1b !important;
+            background: #dc2626 !important;
+            border-color: #b91c1c !important;
+            color: #ffffff !important;
+            box-shadow: 0 3px 10px rgba(220, 38, 38, 0.25) !important;
         }
         .btn-estado-tap.activo-j {
-            background: #fef3c7 !important;
-            border-color: #d97706 !important;
-            color: #92400e !important;
+            background: #d97706 !important;
+            border-color: #b45309 !important;
+            color: #ffffff !important;
+            box-shadow: 0 3px 10px rgba(217, 119, 6, 0.25) !important;
         }
         .just-motivo-wrap {
             margin-top: 10px;
@@ -469,109 +539,179 @@ $stmt_est->close();
         .just-motivo-wrap select {
             margin: 0;
             min-height: 44px;
-            font-size: 0.92rem;
+            font-size: 0.9rem;
+            background: #ffffff;
+            border-color: #fcd34d;
         }
         .barra-guardar-fija {
             position: sticky;
             bottom: 10px;
-            z-index: 50;
-            margin-top: 22px;
+            z-index: 60;
+            margin-top: 20px;
             background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
             border: 1px solid #cbd5e1;
-            border-radius: 14px;
+            border-radius: 16px;
             padding: 12px 16px;
-            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
+        }
+        .barra-guardar-meta {
+            font-size: 0.86rem;
+            color: #334155;
+            font-weight: 600;
+            text-align: left;
         }
         .barra-guardar-fija .btn-guardar {
             margin: 0;
             min-height: 48px;
-            font-size: 1rem;
+            font-size: 0.96rem;
             font-weight: 700;
-            max-width: 360px;
+            border-radius: 12px;
+            max-width: 340px;
             width: 100%;
         }
         @media (max-width: 768px) {
-            .header-fijo {
-                flex-wrap: wrap;
-                padding: 10px 14px;
-                gap: 8px;
-            }
-            .header-fijo nav ul {
-                flex-wrap: wrap;
-                gap: 6px;
-                justify-content: center;
+            .asistencia-wrap {
+                margin: 12px auto 32px auto;
+                padding: 0 12px;
             }
             .toolbar-movil {
                 flex-direction: column;
                 align-items: stretch;
+                padding: 14px;
+                gap: 10px;
             }
             .toolbar-grupo {
                 flex-direction: column;
                 align-items: stretch;
+                gap: 10px;
             }
             .toolbar-movil input[type="date"],
-            .toolbar-movil input[type="search"],
-            .btn-todos-presentes {
+            .toolbar-movil input[type="search"] {
                 max-width: none !important;
+                min-width: 0 !important;
                 width: 100% !important;
+            }
+            .toolbar-acciones {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                width: 100%;
+            }
+            .btn-todos-presentes,
+            .btn-ver-guardada {
+                width: 100% !important;
+                padding: 10px 8px !important;
+                font-size: 0.82rem !important;
+                justify-content: center;
+            }
+            .resumen-vivo {
+                gap: 8px;
+                margin-bottom: 14px;
+            }
+            .resumen-pill {
+                padding: 9px 6px;
+                border-radius: 12px;
+            }
+            .resumen-pill .num {
+                font-size: 1.3rem;
+            }
+            .resumen-pill .lbl {
+                font-size: 0.68rem;
             }
             .alumnos-grid {
                 grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .alumno-card {
+                padding: 14px 13px;
+            }
+            .btn-estado-tap {
+                font-size: 0.81rem !important;
+                min-height: 45px;
             }
             .barra-guardar-fija {
                 flex-direction: column;
                 align-items: stretch;
-                bottom: 6px;
+                bottom: 8px;
+                padding: 11px 12px;
+                gap: 8px;
+                border-radius: 16px;
+            }
+            .barra-guardar-meta {
+                text-align: center;
+                font-size: 0.82rem;
             }
             .barra-guardar-fija .btn-guardar {
                 max-width: none;
+                min-height: 50px;
             }
         }
     </style>
 </head>
-<body>
+<body class="portal-docente">
 
-    <header class="header-fijo">
-        <div class="logo">
-            <img src="logo.png" alt="Logo">
+    <header class="header-fijo" id="appHeader">
+        <div class="header-brand">
+            <a href="panel_profesor.php" class="logo" aria-label="Volver al Portal Docente">
+                <img src="logo.png" alt="Logo">
+            </a>
+            <h2 class="header-title">Pase de Lista</h2>
         </div>
-        <h2>PASE DE LISTA DOCENTE</h2>
-        <nav>
+
+        <div class="header-mobile-controls">
+            <a href="panel_profesor.php" class="header-quick-back">Panel</a>
+            <button type="button" class="nav-toggle" id="navToggle" aria-label="Abrir menú de navegación" aria-expanded="false" aria-controls="headerNav">
+                <span class="nav-toggle-bar"></span>
+                <span class="nav-toggle-bar"></span>
+                <span class="nav-toggle-bar"></span>
+            </button>
+        </div>
+
+        <nav class="header-nav" id="headerNav" aria-label="Navegación pase de lista">
             <ul>
-                <li><a href="panel_profesor.php">← Volver al Panel</a></li>
+                <li><a href="panel_profesor.php">Volver al Panel</a></li>
                 <li><a href="asistencias_guardadas.php?id_seccion=<?php echo $id_seccion; ?>&id_materia=<?php echo $id_materia; ?>&fecha=<?php echo urlencode($fecha_actual); ?>">Asistencias Guardadas</a></li>
                 <li><a href="../api/logout.php">Cerrar Sesión</a></li>
             </ul>
         </nav>
     </header>
+    <div class="nav-backdrop" id="navBackdrop" aria-hidden="true"></div>
 
     <div class="asistencia-wrap">
-        <div class="asistencia-header-card">
-            <h2>Control de Asistencia — Sección <?php echo htmlspecialchars($seccion_info['nombre_seccion']); ?></h2>
-            <p>
-                Materia: <strong><?php echo htmlspecialchars($seccion_info['nombre_materia']); ?></strong> |
-                Matrícula: <strong><?php echo count($listaEstudiantes); ?> estudiante(s)</strong>.
-                Pulse sobre el estado de cada alumno directamente desde su teléfono o computadora y guarde la clase.
-            </p>
+        <div class="asistencia-header-card docente-hero">
+            <span class="docente-hero-eyebrow">Sección <?php echo htmlspecialchars($seccion_info['nombre_seccion']); ?></span>
+            <h2><?php echo htmlspecialchars($seccion_info['nombre_materia']); ?></h2>
+            <p>Toque el estado de cada estudiante y guarde la asistencia de la clase al finalizar.</p>
+            <div class="docente-hero-meta">
+                <span class="docente-hero-chip">Matrícula: <?php echo count($listaEstudiantes); ?> estudiante(s)</span>
+                <span class="docente-hero-chip">Fecha: <?php echo htmlspecialchars($fecha_actual); ?></span>
+            </div>
         </div>
 
-        <form action="" method="POST" style="max-width: none; margin: 0; padding: 0; background: transparent; box-shadow: none;">
+        <form action="" method="POST" style="max-width: none; margin: 0; padding: 0; border: none; background: transparent; box-shadow: none;">
             <div class="toolbar-movil">
                 <div class="toolbar-grupo">
-                    <label for="fecha">Fecha:</label>
-                    <input type="date" id="fecha" name="fecha" value="<?php echo htmlspecialchars($fecha_actual); ?>" required
-                           onchange="window.location.href='registrar_inasistencia.php?id_seccion=<?php echo $id_seccion; ?>&id_materia=<?php echo $id_materia; ?>&fecha=' + encodeURIComponent(this.value);">
-                    <input type="search" id="buscador_alumno" placeholder="Buscar alumno por nombre o cédula..." oninput="filtrarAlumnos(this.value)">
+                    <div class="toolbar-campo">
+                        <label for="fecha">Fecha de Clase</label>
+                        <input type="date" id="fecha" name="fecha" value="<?php echo htmlspecialchars($fecha_actual); ?>" required
+                               onchange="window.location.href='registrar_inasistencia.php?id_seccion=<?php echo $id_seccion; ?>&id_materia=<?php echo $id_materia; ?>&fecha=' + encodeURIComponent(this.value);">
+                    </div>
+                    <div class="toolbar-campo">
+                        <label for="buscador_alumno">Buscar Estudiante</label>
+                        <input type="search" id="buscador_alumno" placeholder="Nombre, apellido o cédula..." oninput="filtrarAlumnos(this.value)">
+                    </div>
                 </div>
 
-                <div class="toolbar-grupo">
-                    <button type="button" class="btn-todos-presentes" onclick="marcarTodosPresentes()">Marcar Todos Presentes</button>
-                    <a href="asistencias_guardadas.php?id_seccion=<?php echo $id_seccion; ?>&id_materia=<?php echo $id_materia; ?>&fecha=<?php echo urlencode($fecha_actual); ?>" class="btn-ver" style="padding: 11px 14px; text-align: center;">
+                <div class="toolbar-acciones">
+                    <button type="button" class="btn-todos-presentes" onclick="marcarTodosPresentes()">Todos Presentes</button>
+                    <a href="asistencias_guardadas.php?id_seccion=<?php echo $id_seccion; ?>&id_materia=<?php echo $id_materia; ?>&fecha=<?php echo urlencode($fecha_actual); ?>" class="btn-ver btn-ver-guardada">
                         Ver Guardada
                     </a>
                 </div>
@@ -621,28 +761,39 @@ $stmt_est->close();
                     $searchKey = strtolower($est['nombre'] . ' ' . $est['apellido'] . ' ' . $est['cedula']);
                     $fechaNac = (!empty($est['fecha_nacimiento']) && $est['fecha_nacimiento'] !== '0000-00-00') ? $est['fecha_nacimiento'] : 'N/A';
                     $sexoTxt  = !empty($est['sexo']) ? $est['sexo'] : 'N/A';
+
+                    $iniNom = trim((string) ($est['nombre'] ?? ''));
+                    $iniApe = trim((string) ($est['apellido'] ?? ''));
+                    $l1 = function_exists('mb_substr') ? mb_substr($iniNom, 0, 1, 'UTF-8') : substr($iniNom, 0, 1);
+                    $l2 = function_exists('mb_substr') ? mb_substr($iniApe, 0, 1, 'UTF-8') : substr($iniApe, 0, 1);
+                    $iniciales = strtoupper(trim($l1 . $l2)) ?: 'AL';
                 ?>
                 <div class="alumno-card <?php echo $cardClass; ?>" id="card_<?php echo $eId; ?>" data-search="<?php echo htmlspecialchars($searchKey); ?>">
                     <input type="hidden" id="estado_val_<?php echo $eId; ?>" name="estado[<?php echo $eId; ?>]" value="<?php echo htmlspecialchars($valorFinal); ?>" data-tipo="<?php echo $tipoBase; ?>">
 
                     <div class="alumno-top">
-                        <div>
-                            <p class="alumno-nombre"><?php echo $num++; ?>. <?php echo htmlspecialchars($nombreCompleto); ?></p>
+                        <div class="avatar-iniciales <?php echo $cardClass; ?>" id="avatar_<?php echo $eId; ?>" aria-hidden="true">
+                            <?php echo htmlspecialchars($iniciales); ?>
+                        </div>
+                        <div class="alumno-info">
+                            <div class="alumno-name-row">
+                                <p class="alumno-nombre"><?php echo $num++; ?>. <?php echo htmlspecialchars($nombreCompleto); ?></p>
+                                <?php if ($estadoG === 'Ausente') { ?>
+                                    <span class="badge badge-ausente chip-guardado">Guardado: Ausente</span>
+                                <?php } elseif ($estadoG === 'Justificado') { ?>
+                                    <span class="badge badge-justificado chip-guardado">Guardado: Justif.</span>
+                                <?php } elseif ($estadoG === 'Presente') { ?>
+                                    <span class="badge badge-presente chip-guardado">Guardado: Presente</span>
+                                <?php } else { ?>
+                                    <span class="badge chip-guardado chip-sin-guardar">Sin guardar</span>
+                                <?php } ?>
+                            </div>
                             <p class="alumno-meta">
-                                C.I. <?php echo htmlspecialchars($est['cedula']); ?> |
-                                F. Nac: <?php echo htmlspecialchars($fechaNac); ?> |
+                                C.I. <?php echo htmlspecialchars($est['cedula']); ?> ·
+                                F. Nac: <?php echo htmlspecialchars($fechaNac); ?> ·
                                 Sexo: <?php echo htmlspecialchars($sexoTxt); ?>
                             </p>
                         </div>
-                        <?php if ($estadoG === 'Ausente') { ?>
-                            <span class="badge badge-ausente">Guardado: Ausente</span>
-                        <?php } elseif ($estadoG === 'Justificado') { ?>
-                            <span class="badge badge-justificado">Guardado: Justif.</span>
-                        <?php } elseif ($estadoG === 'Presente') { ?>
-                            <span class="badge badge-presente">Guardado: Presente</span>
-                        <?php } else { ?>
-                            <span class="badge badge-presente" style="background:#e2e8f0;color:#334155;">Sin guardar</span>
-                        <?php } ?>
                     </div>
 
                     <div class="botones-estado">
@@ -676,7 +827,7 @@ $stmt_est->close();
             </div>
 
             <div class="barra-guardar-fija">
-                <div style="font-size: 0.9rem; color: #334155; font-weight: 600;">
+                <div class="barra-guardar-meta">
                     Fecha: <strong><?php echo htmlspecialchars($fecha_actual); ?></strong> — Sección <?php echo htmlspecialchars($seccion_info['nombre_seccion']); ?>
                 </div>
                 <button type="submit" class="btn-guardar">Guardar Asistencia de la Clase</button>
@@ -693,6 +844,7 @@ $stmt_est->close();
         function seleccionarEstado(id, tipo) {
             var hidden = document.getElementById('estado_val_' + id);
             var card   = document.getElementById('card_' + id);
+            var avatar = document.getElementById('avatar_' + id);
             var btnP   = document.getElementById('btn_p_' + id);
             var btnA   = document.getElementById('btn_a_' + id);
             var btnJ   = document.getElementById('btn_j_' + id);
@@ -703,18 +855,21 @@ $stmt_est->close();
             btnA.classList.remove('activo-a');
             btnJ.classList.remove('activo-j');
             card.classList.remove('st-presente', 'st-ausente', 'st-justificado');
+            if (avatar) avatar.classList.remove('st-presente', 'st-ausente', 'st-justificado');
 
             if (tipo === 'Presente') {
                 hidden.value = 'Presente';
                 hidden.setAttribute('data-tipo', 'Presente');
                 btnP.classList.add('activo-p');
                 card.classList.add('st-presente');
+                if (avatar) avatar.classList.add('st-presente');
                 wrapM.style.display = 'none';
             } else if (tipo === 'Ausente') {
                 hidden.value = 'Ausente';
                 hidden.setAttribute('data-tipo', 'Ausente');
                 btnA.classList.add('activo-a');
                 card.classList.add('st-ausente');
+                if (avatar) avatar.classList.add('st-ausente');
                 wrapM.style.display = 'none';
             } else {
                 var motivo = selM ? selM.value : 'Motivos Personales';
@@ -722,6 +877,7 @@ $stmt_est->close();
                 hidden.setAttribute('data-tipo', 'Justificado');
                 btnJ.classList.add('activo-j');
                 card.classList.add('st-justificado');
+                if (avatar) avatar.classList.add('st-justificado');
                 wrapM.style.display = 'block';
             }
             actualizarContadores();
@@ -770,6 +926,35 @@ $stmt_est->close();
         }
 
         actualizarContadores();
+
+        (function() {
+            var toggle = document.getElementById('navToggle');
+            var nav = document.getElementById('headerNav');
+            var backdrop = document.getElementById('navBackdrop');
+            if (!toggle || !nav) return;
+
+            function setMenu(open) {
+                nav.classList.toggle('is-open', open);
+                if (backdrop) backdrop.classList.toggle('is-open', open);
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+
+            toggle.addEventListener('click', function() {
+                setMenu(!nav.classList.contains('is-open'));
+            });
+            if (backdrop) {
+                backdrop.addEventListener('click', function() { setMenu(false); });
+            }
+            nav.querySelectorAll('a').forEach(function(link) {
+                link.addEventListener('click', function() { setMenu(false); });
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') setMenu(false);
+            });
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 768) setMenu(false);
+            });
+        })();
     </script>
 
 </body>
