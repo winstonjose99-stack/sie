@@ -241,6 +241,7 @@ class SQLiteMysqliCompat {
 
     public function prepare(string $sql): SQLiteStmtCompat {
         return new SQLiteStmtCompat($this->pdo, $sql, function (string $s, array $p): void {
+            $this->insert_id = (int) $this->pdo->lastInsertId();
             $this->recordWrite($s, $p);
         });
     }

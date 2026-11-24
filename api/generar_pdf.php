@@ -548,6 +548,108 @@ if ($tipo === 'listado_general') {
     }
 }
 
+// =========================================================================
+// 5. REPORTE ADMINISTRATIVO DE NOTAS ACADEMICAS PONDERADAS (BLANCO Y NEGRO)
+// =========================================================================
+if ($tipo === 'notas_admin') {
+    if (!$esAdmin) {
+        alertaYRedirigir('Solo el personal administrativo puede exportar el consolidado institucional de notas.');
+    }
+
+    $id_seccion_f = intval($_GET['id_seccion'] ?? 0);
+    $id_materia_f = intval($_GET['id_materia'] ?? 0);
+    $lapso_f      = trim($_GET['lapso'] ?? '');
+
+    $sqlN = "
+        SELECT n.lapso, n.evaluacion, n.ponderacion, n.calificacion, n.fecha_registro,
+               e.nombre AS est_nombre, e.apellido AS est_apellido, e.cedula AS est_cedula,
+               s.nombre_seccion,
+               m.nombre_materia,
+               d.nombre AS doc_nombre, d.apellido AS doc_apellido
+        FROM notas_academicas n
+        INNER JOIN estudiantes e ON n.id_estudiante = e.id_estudiante
+        LEFT JOIN secciones s ON e.id_seccion = s.id_seccion
+        LEFT JOIN materias m ON n.id_materia = m.id_materia
+        LEFT JOIN docentes d ON n.id_docente = d.id_docente
+        WHERE 1=1
+    ";
+    $typesN = '';
+    $paramsN = [];
+    if ($id_seccion_f > 0) {
+        $sqlN .= " AND e.id_seccion = ?";
+        $typesN .= 'i';
+        $paramsN[] = $id_seccion_f;
+    }
+    if ($id_materia_f > 0) {
+        $sqlN .= " AND n.id_materia = ?";
+        $typesN .= 'i';
+        $paramsN[] = $id_materia_f;
+    }
+    if ($lapso_f !== '') {
+        $sqlN .= " AND n.lapso = ?";
+        $typesN .= 's';
+        $paramsN[] = $lapso_f;
+    }
+    $sqlN .= " ORDER BY s.nombre_seccion ASC, e.apellido ASC, n.lapso ASC, n.fecha_registro ASC";
+
+    $stmtN = $conn->prepare($sqlN);
+    if ($typesN !== '') {
+        $stmtN->bind_param($typesN, ...$paramsN);
+    }
+    $stmtN->execute();
+    $resN = $stmtN->get_result();
+    $filasN = [];
+    if ($resN) {
+        while ($r = $resN->fetch_assoc()) {
+            $filasN[] = $r;
+        }
+    }
+    $stmtN->close();
+
+    $pdf = new SimplePDF('L');
+    $pdf->setHeaderInfo(
+        'Reporte Administrativo de Notas Academicas (100%)',
+        'Consolidado institucional de calificaciones ponderadas',
+        [
+            'Lapso'      => $lapso_f !== '' ? $lapso_f : 'Todos',
+            'Registros'  => count($filasN) . ' calificaciones',
+            'Escala'     => '0 a 20 pts (Ponderado)',
+        ]
+    );
+    $pdf->addPage();
+    $pdf->setTableColumns(
+        ['Estudiante', 'Cedula', 'Seccion', 'Materia', 'Docente', 'Lapso', 'Actividad', 'Pond.', 'Nota', 'Aporte'],
+        [16, 9, 7, 11, 12, 8, 17, 6, 7, 7]
+    );
+
+    if (!empty($filasN)) {
+        foreach ($filasN as $idx => $row) {
+            $pond   = (float) ($row['ponderacion'] ?? 0);
+            $calif  = (float) $row['calificacion'];
+            $aporte = $pond > 0 ? ($calif * $pond) / 100.0 : 0.0;
+            $doc    = trim(($row['doc_nombre'] ?? '') . ' ' . ($row['doc_apellido'] ?? '')) ?: 'N/A';
+            $pdf->addTableRow([
+                trim($row['est_apellido'] . ', ' . $row['est_nombre']),
+                $row['est_cedula'] ?? 'N/A',
+                $row['nombre_seccion'] ?? 'N/A',
+                $row['nombre_materia'] ?? 'N/A',
+                $doc,
+                $row['lapso'] ?? '',
+                $row['evaluacion'] ?? '',
+                $pond > 0 ? number_format($pond, 0) . '%' : '-',
+                number_format($calif, 2),
+                $pond > 0 ? number_format($aporte, 2) : '-',
+            ], $idx);
+        }
+    } else {
+        $pdf->addTableRow(['Sin calificaciones registradas', '-', '-', '-', '-', '-', '-', '-', '-', '-'], 0);
+    }
+
+    $pdf->drawSignatureFooter('Coordinacion de Evaluacion', 'Direccion del Plantel');
+    $conn->close();
+    $pdf->output('Reporte_Notas_Administrativo.pdf', $download);
+}
+
 $conn->close();
 alertaYRedirigir('Tipo de reporte PDF no reconocido.');
 ?>

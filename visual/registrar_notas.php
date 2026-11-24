@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ");
         $stmtIns->bind_param("iiiissds", $id_seccion, $id_materia, $id_docente, $idPeriodo, $lapsoActual, $nombreAct, $ponderacion, $fechaEval);
         if ($stmtIns->execute()) {
-            $nuevaEvalId = (int) $conn->insert_id;
+            $nuevaEvalId = (int) ($stmtIns->insert_id ?: $conn->insert_id);
             $stmtIns->close();
             $conn->close();
             alertaYRedirigir(

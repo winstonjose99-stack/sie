@@ -160,6 +160,12 @@ if ($resIna && $rowIna = $resIna->fetch_assoc()) {
                 <p>Consultar y auditar el historial de faltas y justificaciones por fecha.</p>
             </a>
 
+            <a href="../visual/notas_admin.php" class="module-card">
+                <div class="icon-box">📝</div>
+                <h3>Notas Académicas (100%)</h3>
+                <p>Supervisar planes de evaluación, calificaciones ponderadas y boletines PDF.</p>
+            </a>
+
             <a href="webhook_zapier.php" class="module-card">
                 <div class="icon-box">🔗</div>
                 <h3>Webhook Zapier</h3>

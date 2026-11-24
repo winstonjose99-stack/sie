@@ -65,6 +65,12 @@ verificarSesionAdmin('iniciar_sesion.html');
                 <h3>Estudiantes</h3>
                 <p>Administrar la matrícula estudiantil, cambios de sección y representantes.</p>
             </a>
+
+            <a href="notas_admin.php" class="card-gestion">
+                <div class="icon-box">📝</div>
+                <h3>Notas Académicas</h3>
+                <p>Consultar planes de evaluación 100%, calificaciones ponderadas y reportes PDF.</p>
+            </a>
         </div>
     </div>
 

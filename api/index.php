@@ -49,6 +49,7 @@ $allowedRoutes = [
     'visual/login_profesor.php',
     'visual/login_representante.php',
     'visual/materias.php',
+    'visual/notas_admin.php',
     'visual/panel_profesor.php',
     'visual/panel_representante.php',
     'visual/profesores.php',

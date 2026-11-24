@@ -13,6 +13,12 @@ if (isset($_SESSION['id_docente'])) {
     header("Location: visual/panel_profesor.php");
     exit();
 }
+
+// Si un representante ya inició sesión, redirigimos al portal de representantes
+if (isset($_SESSION['id_representante'])) {
+    header("Location: visual/panel_representante.php");
+    exit();
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -52,6 +58,13 @@ if (isset($_SESSION['id_docente'])) {
         .btn-secundario:hover {
             box-shadow: 0 6px 16px rgba(16, 185, 129, 0.32);
         }
+        .btn-terciario {
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.22);
+        }
+        .btn-terciario:hover {
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.32);
+        }
     </style>
 </head>
 <body>
@@ -59,10 +72,11 @@ if (isset($_SESSION['id_docente'])) {
     <div class="welcome-box">
         <span class="hero-badge">Plataforma Escolar SIE</span>
         <h1>Sistema de Asistencias</h1>
-        <p>Plataforma de gestión gerencial, control estudiantil por secciones y notificaciones automatizadas vía WhatsApp.</p>
+        <p>Plataforma de gestión gerencial, control estudiantil por secciones, notas ponderadas y notificaciones al portal de representantes.</p>
 
         <a href="visual/iniciar_sesion.html" class="btn-ingresar">Acceso Administración</a>
         <a href="visual/login_profesor.php" class="btn-ingresar btn-secundario">Acceso Profesores</a>
+        <a href="visual/login_representante.php" class="btn-ingresar btn-terciario">Acceso Representantes</a>
 
         <div class="auth-footer">
             <span>¿Desea conocer más sobre la plataforma? <a href="visual/inicio.html">Ir a la portada principal</a></span>
