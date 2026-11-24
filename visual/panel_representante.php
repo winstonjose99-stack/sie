@@ -155,10 +155,10 @@ if ($resAsis) {
 }
 $stmtAsis->close();
 
-// 5. Notas académicas
+// 5. Notas académicas (con ponderación % y resumen acumulado por materia/lapso)
 if ($filtro_est > 0) {
     $stmtNotas = $conn->prepare("
-        SELECT n.id_nota, n.lapso, n.evaluacion, n.calificacion, n.observacion, n.fecha_registro,
+        SELECT n.id_nota, n.id_estudiante, n.lapso, n.evaluacion, n.ponderacion, n.calificacion, n.observacion, n.fecha_registro,
                e.nombre AS est_nombre, e.apellido AS est_apellido,
                m.nombre_materia,
                d.nombre AS doc_nombre, d.apellido AS doc_apellido
@@ -168,12 +168,12 @@ if ($filtro_est > 0) {
         LEFT JOIN docentes d ON n.id_docente = d.id_docente
         WHERE e.id_representante = ? AND e.id_estudiante = ?
         ORDER BY n.fecha_registro DESC, n.id_nota DESC
-        LIMIT 60
+        LIMIT 80
     ");
     $stmtNotas->bind_param("ii", $id_representante, $filtro_est);
 } else {
     $stmtNotas = $conn->prepare("
-        SELECT n.id_nota, n.lapso, n.evaluacion, n.calificacion, n.observacion, n.fecha_registro,
+        SELECT n.id_nota, n.id_estudiante, n.lapso, n.evaluacion, n.ponderacion, n.calificacion, n.observacion, n.fecha_registro,
                e.nombre AS est_nombre, e.apellido AS est_apellido,
                m.nombre_materia,
                d.nombre AS doc_nombre, d.apellido AS doc_apellido
@@ -183,18 +183,38 @@ if ($filtro_est > 0) {
         LEFT JOIN docentes d ON n.id_docente = d.id_docente
         WHERE e.id_representante = ?
         ORDER BY n.fecha_registro DESC, n.id_nota DESC
-        LIMIT 60
+        LIMIT 80
     ");
     $stmtNotas->bind_param("i", $id_representante);
 }
 $stmtNotas->execute();
 $resNotas = $stmtNotas->get_result();
 $notas = [];
+$resumenAcumulado = [];
 $sumaNotas = 0.0;
 if ($resNotas) {
     while ($nt = $resNotas->fetch_assoc()) {
+        $pond = (float) ($nt['ponderacion'] ?? 0);
+        $calif = (float) $nt['calificacion'];
+        $aporte = $pond > 0 ? ($calif * $pond) / 100.0 : 0.0;
+        $nt['aporte_ponderado'] = $aporte;
         $notas[] = $nt;
-        $sumaNotas += (float) $nt['calificacion'];
+        $sumaNotas += $calif;
+
+        $clave = $nt['id_estudiante'] . '|' . ($nt['nombre_materia'] ?? 'Materia') . '|' . ($nt['lapso'] ?? '1er Lapso');
+        if (!isset($resumenAcumulado[$clave])) {
+            $resumenAcumulado[$clave] = [
+                'estudiante' => trim($nt['est_nombre'] . ' ' . $nt['est_apellido']),
+                'materia'    => $nt['nombre_materia'] ?? 'N/A',
+                'lapso'      => $nt['lapso'] ?? '1er Lapso',
+                'pct'        => 0.0,
+                'acumulado'  => 0.0,
+                'cantidad'   => 0,
+            ];
+        }
+        $resumenAcumulado[$clave]['pct'] += $pond;
+        $resumenAcumulado[$clave]['acumulado'] += $aporte;
+        $resumenAcumulado[$clave]['cantidad']++;
     }
 }
 $stmtNotas->close();
@@ -494,11 +514,54 @@ $promedioGeneral = count($notas) > 0 ? number_format($sumaNotas / count($notas),
             </div>
         </div>
 
-        <!-- Sección 3: Boletín de Notas Académicas -->
+        <!-- Sección 3: Boletín de Notas Académicas Ponderadas -->
         <div id="notas" class="container" style="margin-top: 0; margin-bottom: 32px;">
-            <h2>Boletín de Notas Académicas</h2>
-            <p>Calificaciones registradas en escala de 0 a 20 puntos por lapso y evaluación.</p>
+            <h2>Boletín de Notas Académicas (Ponderación 100%)</h2>
+            <p>Resumen acumulado por lapso y desglose de cada actividad evaluada en escala de 0 a 20 puntos.</p>
 
+            <?php if (!empty($resumenAcumulado)) { ?>
+            <div class="table-responsive" style="margin-bottom: 24px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Estudiante</th>
+                            <th>Materia</th>
+                            <th>Lapso</th>
+                            <th>Evaluaciones</th>
+                            <th>% Evaluado</th>
+                            <th>Nota Acumulada (/ 20)</th>
+                            <th>Estado del Lapso</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($resumenAcumulado as $res) {
+                            $acum = (float) $res['acumulado'];
+                            $pct  = (float) $res['pct'];
+                        ?>
+                        <tr>
+                            <td><strong><?php echo htmlspecialchars($res['estudiante']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($res['materia']); ?></td>
+                            <td><?php echo htmlspecialchars($res['lapso']); ?></td>
+                            <td><?php echo (int) $res['cantidad']; ?> actividad(es)</td>
+                            <td><strong><?php echo number_format($pct, 0); ?>% / 100%</strong></td>
+                            <td><span class="nota-valor"><?php echo number_format($acum, 2); ?> / 20</span></td>
+                            <td>
+                                <?php if ($acum >= 10.0) { ?>
+                                    <span class="badge badge-presente">Aprobado</span>
+                                <?php } elseif ($pct < 100.0) { ?>
+                                    <span class="badge badge-justificado">En Curso</span>
+                                <?php } else { ?>
+                                    <span class="badge badge-ausente">En Recuperación</span>
+                                <?php } ?>
+                            </td>
+                        </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php } ?>
+
+            <h3 style="text-align: left; margin-bottom: 10px;">Desglose por Actividad</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
@@ -506,9 +569,10 @@ $promedioGeneral = count($notas) > 0 ? number_format($sumaNotas / count($notas),
                             <th>Estudiante</th>
                             <th>Materia</th>
                             <th>Lapso</th>
-                            <th>Evaluación</th>
+                            <th>Actividad</th>
+                            <th>Ponderación</th>
                             <th>Calificación</th>
-                            <th>Estado</th>
+                            <th>Aporte</th>
                             <th>Observación</th>
                             <th>Fecha</th>
                         </tr>
@@ -516,26 +580,24 @@ $promedioGeneral = count($notas) > 0 ? number_format($sumaNotas / count($notas),
                     <tbody>
                         <?php if (!empty($notas)) { ?>
                             <?php foreach ($notas as $nt) {
-                                $calif = (float) $nt['calificacion'];
-                                $aprobado = ($calif >= 10.0);
+                                $calif  = (float) $nt['calificacion'];
+                                $pond   = (float) ($nt['ponderacion'] ?? 0);
+                                $aporte = (float) ($nt['aporte_ponderado'] ?? 0);
                             ?>
                             <tr>
                                 <td><strong><?php echo htmlspecialchars(trim($nt['est_nombre'] . ' ' . $nt['est_apellido'])); ?></strong></td>
                                 <td><?php echo htmlspecialchars($nt['nombre_materia'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($nt['lapso']); ?></td>
                                 <td><?php echo htmlspecialchars($nt['evaluacion']); ?></td>
+                                <td><span class="badge-nota"><?php echo $pond > 0 ? number_format($pond, 0) . '%' : '—'; ?></span></td>
                                 <td><span class="nota-valor"><?php echo number_format($calif, 2); ?> / 20</span></td>
-                                <td>
-                                    <span class="badge <?php echo $aprobado ? 'badge-presente' : 'badge-ausente'; ?>">
-                                        <?php echo $aprobado ? 'Aprobado' : 'En Recuperación'; ?>
-                                    </span>
-                                </td>
+                                <td><strong><?php echo $pond > 0 ? number_format($aporte, 2) . ' pts' : '—'; ?></strong></td>
                                 <td><?php echo htmlspecialchars($nt['observacion'] ?: 'Sin observaciones'); ?></td>
                                 <td><?php echo htmlspecialchars($nt['fecha_registro']); ?></td>
                             </tr>
                             <?php } ?>
                         <?php } else { ?>
-                            <tr><td colspan="8">Aún no hay calificaciones cargadas para sus representados.</td></tr>
+                            <tr><td colspan="9">Aún no hay calificaciones cargadas para sus representados.</td></tr>
                         <?php } ?>
                     </tbody>
                 </table>

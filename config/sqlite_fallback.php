@@ -371,14 +371,28 @@ CREATE TABLE IF NOT EXISTS notificaciones_representante (
     fecha_creacion TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS evaluaciones_plan (
+    id_evaluacion INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_seccion INTEGER NOT NULL,
+    id_materia INTEGER NOT NULL,
+    id_docente INTEGER NOT NULL,
+    id_periodo INTEGER DEFAULT NULL,
+    lapso TEXT NOT NULL DEFAULT '1er Lapso',
+    nombre_actividad TEXT NOT NULL,
+    ponderacion REAL NOT NULL DEFAULT 25.00,
+    fecha_evaluacion TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS notas_academicas (
     id_nota INTEGER PRIMARY KEY AUTOINCREMENT,
     id_estudiante INTEGER NOT NULL,
     id_materia INTEGER NOT NULL,
     id_docente INTEGER DEFAULT NULL,
     id_periodo INTEGER DEFAULT NULL,
+    id_evaluacion INTEGER DEFAULT NULL,
     lapso TEXT NOT NULL DEFAULT '1er Lapso',
     evaluacion TEXT NOT NULL,
+    ponderacion REAL NOT NULL DEFAULT 25.00,
     calificacion REAL NOT NULL,
     observacion TEXT DEFAULT NULL,
     fecha_registro TEXT NOT NULL
@@ -465,21 +479,25 @@ INSERT INTO inasistencias (id_inasistencia, id_estudiante, id_materia, id_docent
 (42,27,13,4,'2026-11-17','Presente','Asistió a clase'),
 (43,22,13,4,'2026-11-17','Ausente',NULL);
 
-INSERT INTO notas_academicas (id_nota, id_estudiante, id_materia, id_docente, id_periodo, lapso, evaluacion, calificacion, observacion, fecha_registro) VALUES
-(1,7,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',18.50,'Excelente dominio en hojas de cálculo','2026-11-10'),
-(2,7,13,4,4,'1er Lapso','Taller de Lógica y Algoritmos',16.00,'Buen desempeño y participación','2026-11-18'),
-(3,8,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',17.00,'Cumplió con todos los objetivos','2026-11-10'),
-(4,8,13,4,4,'1er Lapso','Taller de Lógica y Algoritmos',19.00,'Sobresaliente resolución de problemas','2026-11-18'),
-(5,20,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',19.50,'Trabajo impecable y puntual','2026-11-10'),
-(6,18,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',18.00,'Muy buena presentación','2026-11-10'),
-(7,24,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',16.50,'Buen progreso en clase','2026-11-10'),
-(8,19,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',14.00,'Debe reforzar asistencia para próximas prácticas','2026-11-10'),
-(9,25,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',17.50,'Participación constante','2026-11-10'),
-(10,21,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',15.50,'Aprobado, mejorar orden de entrega','2026-11-10'),
-(11,22,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',18.00,'Excelente actitud en el laboratorio','2026-11-10'),
-(12,26,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',19.00,'Destacada en programación básica','2026-11-10'),
-(13,23,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',13.50,'Requiere repasar temas de la clase perdida','2026-11-10'),
-(14,27,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',17.00,'Buen rendimiento general','2026-11-10');
+INSERT INTO evaluaciones_plan (id_evaluacion, id_seccion, id_materia, id_docente, id_periodo, lapso, nombre_actividad, ponderacion, fecha_evaluacion) VALUES
+(1,8,13,4,4,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,'2026-11-10'),
+(2,8,13,4,4,'1er Lapso','Actividad 2: Taller de Lógica y Algoritmos',25.00,'2026-11-18');
+
+INSERT INTO notas_academicas (id_nota, id_estudiante, id_materia, id_docente, id_periodo, id_evaluacion, lapso, evaluacion, ponderacion, calificacion, observacion, fecha_registro) VALUES
+(1,7,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,18.50,'Excelente dominio en hojas de cálculo','2026-11-10'),
+(2,7,13,4,4,2,'1er Lapso','Actividad 2: Taller de Lógica y Algoritmos',25.00,16.00,'Buen desempeño y participación','2026-11-18'),
+(3,8,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,17.00,'Cumplió con todos los objetivos','2026-11-10'),
+(4,8,13,4,4,2,'1er Lapso','Actividad 2: Taller de Lógica y Algoritmos',25.00,19.00,'Sobresaliente resolución de problemas','2026-11-18'),
+(5,20,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,19.50,'Trabajo impecable y puntual','2026-11-10'),
+(6,18,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,18.00,'Muy buena presentación','2026-11-10'),
+(7,24,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,16.50,'Buen progreso en clase','2026-11-10'),
+(8,19,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,14.00,'Debe reforzar asistencia para próximas prácticas','2026-11-10'),
+(9,25,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,17.50,'Participación constante','2026-11-10'),
+(10,21,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,15.50,'Aprobado, mejorar orden de entrega','2026-11-10'),
+(11,22,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,18.00,'Excelente actitud en el laboratorio','2026-11-10'),
+(12,26,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,19.00,'Destacada en programación básica','2026-11-10'),
+(13,23,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,13.50,'Requiere repasar temas de la clase perdida','2026-11-10'),
+(14,27,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,17.00,'Buen rendimiento general','2026-11-10');
 
 INSERT INTO notificaciones_representante (id_notificacion, id_representante, id_estudiante, tipo, titulo, mensaje, leida, fecha_creacion) VALUES
 (1,9,7,'asistencia','Asistencia confirmada — Informatica','Giuseppe Salas asistió puntualmente a la clase de Informatica (Sección 1A) el 2026-11-18.',0,'2026-11-18 08:30:00'),

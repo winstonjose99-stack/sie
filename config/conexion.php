@@ -22,7 +22,7 @@ if (!$esEntornoVercel || (getenv('DB_HOST') && getenv('DB_HOST') !== 'localhost'
 // Fallback automático a SQLite precargado cuando se ejecuta en Vercel Serverless sin MySQL externo
 if ($conn === null) {
     require_once __DIR__ . '/sqlite_fallback.php';
-    $sqlitePath = rtrim(sys_get_temp_dir(), '/\\') . '/sistema_asistencias_v2.sqlite';
+    $sqlitePath = rtrim(sys_get_temp_dir(), '/\\') . '/sistema_asistencias_v3.sqlite';
     $conn = new SQLiteMysqliCompat($sqlitePath);
 }
 

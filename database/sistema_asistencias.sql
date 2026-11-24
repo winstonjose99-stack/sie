@@ -111,6 +111,43 @@ INSERT INTO `estudiantes` VALUES (7,'Giuseppe','Salas','31450112','2011-04-15','
 UNLOCK TABLES;
 
 --
+-- Table structure for table `evaluaciones_plan`
+--
+
+DROP TABLE IF EXISTS `evaluaciones_plan`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `evaluaciones_plan` (
+  `id_evaluacion` int(11) NOT NULL AUTO_INCREMENT,
+  `id_seccion` int(11) NOT NULL,
+  `id_materia` int(11) NOT NULL,
+  `id_docente` int(11) NOT NULL,
+  `id_periodo` int(11) DEFAULT NULL,
+  `lapso` varchar(30) NOT NULL DEFAULT '1er Lapso',
+  `nombre_actividad` varchar(120) NOT NULL,
+  `ponderacion` decimal(5,2) NOT NULL DEFAULT 25.00,
+  `fecha_evaluacion` date NOT NULL,
+  PRIMARY KEY (`id_evaluacion`),
+  KEY `idx_eval_sec_mat` (`id_seccion`,`id_materia`,`lapso`),
+  KEY `fk_eval_materia` (`id_materia`),
+  KEY `fk_eval_docente` (`id_docente`),
+  CONSTRAINT `fk_eval_docente` FOREIGN KEY (`id_docente`) REFERENCES `docentes` (`id_docente`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_eval_materia` FOREIGN KEY (`id_materia`) REFERENCES `materias` (`id_materia`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_eval_seccion` FOREIGN KEY (`id_seccion`) REFERENCES `secciones` (`id_seccion`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `evaluaciones_plan`
+--
+
+LOCK TABLES `evaluaciones_plan` WRITE;
+/*!40000 ALTER TABLE `evaluaciones_plan` DISABLE KEYS */;
+INSERT INTO `evaluaciones_plan` VALUES (1,8,13,4,4,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,'2026-11-10'),(2,8,13,4,4,'1er Lapso','Actividad 2: Taller de Lógica y Algoritmos',25.00,'2026-11-18');
+/*!40000 ALTER TABLE `evaluaciones_plan` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `inasistencias`
 --
 
@@ -210,8 +247,10 @@ CREATE TABLE `notas_academicas` (
   `id_materia` int(11) NOT NULL,
   `id_docente` int(11) DEFAULT NULL,
   `id_periodo` int(11) DEFAULT NULL,
+  `id_evaluacion` int(11) DEFAULT NULL,
   `lapso` varchar(30) NOT NULL DEFAULT '1er Lapso',
   `evaluacion` varchar(120) NOT NULL,
+  `ponderacion` decimal(5,2) NOT NULL DEFAULT 25.00,
   `calificacion` decimal(5,2) NOT NULL,
   `observacion` varchar(200) DEFAULT NULL,
   `fecha_registro` date NOT NULL,
@@ -233,7 +272,7 @@ CREATE TABLE `notas_academicas` (
 
 LOCK TABLES `notas_academicas` WRITE;
 /*!40000 ALTER TABLE `notas_academicas` DISABLE KEYS */;
-INSERT INTO `notas_academicas` VALUES (1,7,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',18.50,'Excelente dominio en hojas de cálculo','2026-11-10'),(2,7,13,4,4,'1er Lapso','Taller de Lógica y Algoritmos',16.00,'Buen desempeño y participación','2026-11-18'),(3,8,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',17.00,'Cumplió con todos los objetivos','2026-11-10'),(4,8,13,4,4,'1er Lapso','Taller de Lógica y Algoritmos',19.00,'Sobresaliente resolución de problemas','2026-11-18'),(5,20,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',19.50,'Trabajo impecable y puntual','2026-11-10'),(6,18,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',18.00,'Muy buena presentación','2026-11-10'),(7,24,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',16.50,'Buen progreso en clase','2026-11-10'),(8,19,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',14.00,'Debe reforzar asistencia para próximas prácticas','2026-11-10'),(9,25,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',17.50,'Participación constante','2026-11-10'),(10,21,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',15.50,'Aprobado, mejorar orden de entrega','2026-11-10'),(11,22,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',18.00,'Excelente actitud en el laboratorio','2026-11-10'),(12,26,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',19.00,'Destacada en programación básica','2026-11-10'),(13,23,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',13.50,'Requiere repasar temas de la clase perdida','2026-11-10'),(14,27,13,4,4,'1er Lapso','Evaluación Práctica de Ofimática',17.00,'Buen rendimiento general','2026-11-10');
+INSERT INTO `notas_academicas` VALUES (1,7,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,18.50,'Excelente dominio en hojas de cálculo','2026-11-10'),(2,7,13,4,4,2,'1er Lapso','Actividad 2: Taller de Lógica y Algoritmos',25.00,16.00,'Buen desempeño y participación','2026-11-18'),(3,8,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,17.00,'Cumplió con todos los objetivos','2026-11-10'),(4,8,13,4,4,2,'1er Lapso','Actividad 2: Taller de Lógica y Algoritmos',25.00,19.00,'Sobresaliente resolución de problemas','2026-11-18'),(5,20,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,19.50,'Trabajo impecable y puntual','2026-11-10'),(6,18,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,18.00,'Muy buena presentación','2026-11-10'),(7,24,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,16.50,'Buen progreso en clase','2026-11-10'),(8,19,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,14.00,'Debe reforzar asistencia para próximas prácticas','2026-11-10'),(9,25,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,17.50,'Participación constante','2026-11-10'),(10,21,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,15.50,'Aprobado, mejorar orden de entrega','2026-11-10'),(11,22,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,18.00,'Excelente actitud en el laboratorio','2026-11-10'),(12,26,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,19.00,'Destacada en programación básica','2026-11-10'),(13,23,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,13.50,'Requiere repasar temas de la clase perdida','2026-11-10'),(14,27,13,4,4,1,'1er Lapso','Actividad 1: Evaluación Práctica de Ofimática',25.00,17.00,'Buen rendimiento general','2026-11-10');
 /*!40000 ALTER TABLE `notas_academicas` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -399,4 +438,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-11-24 11:35:47
+-- Dump completed on 2026-11-24 11:50:24

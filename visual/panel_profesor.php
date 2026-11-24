@@ -147,7 +147,7 @@ $stmt_guardadas->close();
                                     Tomar Asistencia
                                 </a>
                                 <a href="registrar_notas.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-editar">
-                                    Cargar Notas
+                                    Gestionar Notas (100%)
                                 </a>
                                 <a href="asistencias_guardadas.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-ver">
                                     Asistencias Guardadas
