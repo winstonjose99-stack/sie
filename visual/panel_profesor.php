@@ -62,8 +62,77 @@ $stmt_guardadas->close();
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal del Docente - Control de Asistencias</title>
     <link rel="stylesheet" href="../css/estilos.css">
+    <style>
+        .secciones-movil-grid {
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .header-fijo {
+                flex-wrap: wrap;
+                padding: 10px 14px;
+                gap: 8px;
+            }
+            .header-fijo nav ul {
+                flex-wrap: wrap;
+                gap: 6px;
+                justify-content: center;
+            }
+            .dashboard-container {
+                padding: 12px;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            .tabla-secciones-desktop {
+                display: none;
+            }
+            .secciones-movil-grid {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 14px;
+                margin-top: 14px;
+            }
+            .sec-movil-card {
+                background: #f8fafc;
+                border: 1px solid #cbd5e1;
+                border-radius: 14px;
+                padding: 16px;
+                text-align: left;
+            }
+            .sec-movil-card h3 {
+                margin: 0 0 4px 0;
+                text-align: left;
+                font-size: 1.08rem;
+                color: #0f172a;
+            }
+            .sec-movil-card p {
+                margin: 0 0 12px 0;
+                font-size: 0.88rem;
+                color: #475569;
+            }
+            .sec-movil-btns {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            .sec-movil-btns a {
+                text-align: center;
+                padding: 12px 10px !important;
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+            }
+            .sec-movil-btns .btn-asistencia {
+                grid-column: 1 / -1;
+            }
+        }
+    </style>
 </head>
 <body>
 
@@ -121,51 +190,78 @@ $stmt_guardadas->close();
             <h2>Mis Secciones Asignadas (Período Activo)</h2>
             <p>Seleccione una sección para pasar lista hoy o consultar sus asistencias guardadas.</p>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sección</th>
-                        <th>Materia</th>
-                        <th>Institución</th>
-                        <th>Matrícula</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    if (!empty($secciones_docente)) {
-                        foreach ($secciones_docente as $sec) {
-                    ?>
-                    <tr>
-                        <td><strong><?php echo htmlspecialchars($sec['nombre_seccion']); ?></strong></td>
-                        <td><?php echo htmlspecialchars($sec['nombre_materia']); ?></td>
-                        <td><?php echo htmlspecialchars($sec['nombre_institucion'] ?? 'N/A'); ?></td>
-                        <td><?php echo (int) $sec['total_estudiantes']; ?> alumnos</td>
-                        <td>
-                            <div class="acciones-container">
-                                <a href="registrar_inasistencia.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-asistencia">
-                                    Tomar Asistencia
-                                </a>
-                                <a href="registrar_notas.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-editar">
-                                    Gestionar Notas (100%)
-                                </a>
-                                <a href="asistencias_guardadas.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-ver">
-                                    Asistencias Guardadas
-                                </a>
-                                <a href="../api/generar_pdf.php?tipo=estudiantes_seccion&id_seccion=<?php echo (int) $sec['id_seccion']; ?>" class="btn-pdf">
-                                    Nómina PDF
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php
+            <div class="tabla-secciones-desktop table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sección</th>
+                            <th>Materia</th>
+                            <th>Institución</th>
+                            <th>Matrícula</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        if (!empty($secciones_docente)) {
+                            foreach ($secciones_docente as $sec) {
+                        ?>
+                        <tr>
+                            <td><strong><?php echo htmlspecialchars($sec['nombre_seccion']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($sec['nombre_materia']); ?></td>
+                            <td><?php echo htmlspecialchars($sec['nombre_institucion'] ?? 'N/A'); ?></td>
+                            <td><?php echo (int) $sec['total_estudiantes']; ?> alumnos</td>
+                            <td>
+                                <div class="acciones-container">
+                                    <a href="registrar_inasistencia.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-asistencia">
+                                        Tomar Asistencia
+                                    </a>
+                                    <a href="registrar_notas.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-editar">
+                                        Gestionar Notas (100%)
+                                    </a>
+                                    <a href="asistencias_guardadas.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-ver">
+                                        Asistencias Guardadas
+                                    </a>
+                                    <a href="../api/generar_pdf.php?tipo=estudiantes_seccion&id_seccion=<?php echo (int) $sec['id_seccion']; ?>" class="btn-pdf">
+                                        Nómina PDF
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php
+                            }
+                        } else {
+                            echo "<tr><td colspan='5'>No tienes secciones asignadas para el período académico actual.</td></tr>";
                         }
-                    } else {
-                        echo "<tr><td colspan='5'>No tienes secciones asignadas para el período académico actual.</td></tr>";
-                    }
-                    ?>
-                </tbody>
-            </table>
+                        ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Tarjetas táctiles para teléfono en el Portal Docente -->
+            <div class="secciones-movil-grid">
+                <?php if (!empty($secciones_docente)) {
+                    foreach ($secciones_docente as $sec) { ?>
+                    <div class="sec-movil-card">
+                        <h3>Sección <?php echo htmlspecialchars($sec['nombre_seccion']); ?> — <?php echo htmlspecialchars($sec['nombre_materia']); ?></h3>
+                        <p><?php echo htmlspecialchars($sec['nombre_institucion'] ?? 'N/A'); ?> | <strong><?php echo (int) $sec['total_estudiantes']; ?> alumnos</strong></p>
+                        <div class="sec-movil-btns">
+                            <a href="registrar_inasistencia.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-asistencia">
+                                Pasar Lista Ahora
+                            </a>
+                            <a href="registrar_notas.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-editar">
+                                Notas (100%)
+                            </a>
+                            <a href="asistencias_guardadas.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-ver">
+                                Guardadas
+                            </a>
+                        </div>
+                    </div>
+                <?php }
+                } else { ?>
+                    <p>No tienes secciones asignadas para el período académico actual.</p>
+                <?php } ?>
+            </div>
         </div>
 
         <!-- Apartado 2: Asistencias Guardadas por Clase/Fecha -->

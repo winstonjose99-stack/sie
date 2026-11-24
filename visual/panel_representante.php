@@ -4,126 +4,11 @@ verificarSesionRepresentante('login_representante.php');
 
 $id_representante = (int) $_SESSION['id_representante'];
 $filtro_est       = intval($_GET['id_estudiante'] ?? 0);
-$fecha_lista      = trim($_GET['fecha'] ?? $_POST['fecha'] ?? date('Y-m-d'));
-if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_lista)) {
-    $fecha_lista = date('Y-m-d');
-}
 
-// Acciones POST: marcar notificaciones como leídas o pasar lista desde el Portal de Representantes
+// Acciones POST: marcar notificaciones como leídas
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $accion = trim($_POST['accion'] ?? '');
-    if ($accion === 'pasar_lista_representante') {
-        $estadosPost = $_POST['estado'] ?? [];
-        $motivosPost = $_POST['motivo_just'] ?? [];
-        $obsPost     = $_POST['motivo_extra'] ?? [];
-
-        $stmtEstVal = $conn->prepare("
-            SELECT e.id_estudiante, e.nombre, e.apellido, e.id_seccion,
-                   s.nombre_seccion, s.id_materia, s.id_docente, m.nombre_materia
-            FROM estudiantes e
-            INNER JOIN secciones s ON e.id_seccion = s.id_seccion
-            LEFT JOIN materias m ON s.id_materia = m.id_materia
-            WHERE e.id_estudiante = ? AND e.id_representante = ?
-            LIMIT 1
-        ");
-        $stmtChk = $conn->prepare("
-            SELECT id_inasistencia
-            FROM inasistencias
-            WHERE id_estudiante = ? AND id_materia = ? AND fecha = ?
-            LIMIT 1
-        ");
-        $stmtIns = $conn->prepare("
-            INSERT INTO inasistencias (id_estudiante, id_materia, id_docente, fecha, estado, motivo)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ");
-        $stmtUpd = $conn->prepare("
-            UPDATE inasistencias
-            SET estado = ?, motivo = ?, id_docente = ?
-            WHERE id_inasistencia = ?
-        ");
-
-        $registrados = 0;
-        $actualizados = 0;
-
-        foreach ($estadosPost as $idEstRaw => $estadoSel) {
-            $idEst = intval($idEstRaw);
-            $estadoSel = trim((string) $estadoSel);
-            if ($idEst <= 0 || !in_array($estadoSel, ['Presente', 'Ausente', 'Justificado'], true)) {
-                continue;
-            }
-
-            $stmtEstVal->bind_param("ii", $idEst, $id_representante);
-            $stmtEstVal->execute();
-            $estData = $stmtEstVal->get_result()->fetch_assoc();
-            if (!$estData || empty($estData['id_materia']) || empty($estData['id_docente'])) {
-                continue;
-            }
-
-            $idMat  = (int) $estData['id_materia'];
-            $idDoc  = (int) $estData['id_docente'];
-            $nomEst = trim($estData['nombre'] . ' ' . $estData['apellido']);
-            $nomSec = $estData['nombre_seccion'] ?? '';
-            $nomMat = $estData['nombre_materia'] ?? 'la materia';
-
-            $obsLibre = trim((string) ($obsPost[$idEstRaw] ?? ''));
-            if ($estadoSel === 'Presente') {
-                $motivoBd = $obsLibre !== '' ? "Asistió — {$obsLibre} (Rep.)" : 'Asistió a clase (Reportado por Representante)';
-            } elseif ($estadoSel === 'Justificado') {
-                $razon = trim((string) ($motivosPost[$idEstRaw] ?? 'Motivos Personales'));
-                if ($razon === '') {
-                    $razon = 'Motivos Personales';
-                }
-                $motivoBd = $obsLibre !== '' ? "{$razon}: {$obsLibre} (Rep.)" : "{$razon} (Reportado por Representante)";
-            } else {
-                $motivoBd = $obsLibre !== '' ? "{$obsLibre} (Reportado por Representante)" : 'Inasistencia reportada por Representante';
-            }
-            if (function_exists('mb_substr')) {
-                $motivoBd = mb_substr($motivoBd, 0, 148, 'UTF-8');
-            } else {
-                $motivoBd = substr($motivoBd, 0, 148);
-            }
-
-            $stmtChk->bind_param("iis", $idEst, $idMat, $fecha_lista);
-            $stmtChk->execute();
-            $exRow = $stmtChk->get_result()->fetch_assoc();
-
-            $okOp = false;
-            if ($exRow) {
-                $idIna = (int) $exRow['id_inasistencia'];
-                $stmtUpd->bind_param("ssii", $estadoSel, $motivoBd, $idDoc, $idIna);
-                if ($stmtUpd->execute()) {
-                    $actualizados++;
-                    $okOp = true;
-                }
-            } else {
-                $stmtIns->bind_param("iiisss", $idEst, $idMat, $idDoc, $fecha_lista, $estadoSel, $motivoBd);
-                if ($stmtIns->execute()) {
-                    $registrados++;
-                    $okOp = true;
-                }
-            }
-
-            if ($okOp) {
-                $tipoN = $estadoSel === 'Presente' ? 'asistencia' : ($estadoSel === 'Justificado' ? 'justificado' : 'ausencia');
-                $titN  = "Pase de lista registrado — {$nomMat}";
-                $msgN  = "Usted reportó a {$nomEst} (Sección {$nomSec}) como {$estadoSel} el {$fecha_lista}. Detalle: {$motivoBd}. Sincronizado con Docente y Administración.";
-                registrarNotificacionRepresentante($conn, $id_representante, $idEst, $tipoN, $titN, $msgN);
-            }
-        }
-
-        $stmtEstVal->close();
-        $stmtChk->close();
-        $stmtIns->close();
-        $stmtUpd->close();
-        $conn->close();
-
-        $totalGuard = $registrados + $actualizados;
-        $redirLista = 'panel_representante.php?fecha=' . urlencode($fecha_lista) . ($filtro_est > 0 ? '&id_estudiante=' . $filtro_est : '') . '#pasar-lista';
-        alertaYRedirigir(
-            "Asistencia del {$fecha_lista} guardada ({$totalGuard} registro(s) sincronizados con el Docente y Administración).",
-            $redirLista
-        );
-    } elseif ($accion === 'marcar_leida') {
+    if ($accion === 'marcar_leida') {
         $idNotif = intval($_POST['id_notificacion'] ?? 0);
         if ($idNotif > 0) {
             $stmtMark = $conn->prepare("UPDATE notificaciones_representante SET leida = 1 WHERE id_notificacion = ? AND id_representante = ?");
@@ -141,10 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtAll->close();
         }
     }
-    if (is_object($conn) && method_exists($conn, 'flushSyncCookies')) {
-        $conn->flushSyncCookies();
-    }
-    $redir = 'panel_representante.php?fecha=' . urlencode($fecha_lista) . ($filtro_est > 0 ? '&id_estudiante=' . $filtro_est : '');
+    $redir = 'panel_representante.php' . ($filtro_est > 0 ? '?id_estudiante=' . $filtro_est : '');
     header("Location: " . $redir);
     exit();
 }
@@ -158,10 +40,10 @@ $stmtRep->close();
 
 $nombreRep = $repInfo ? trim($repInfo['nombre'] . ' ' . $repInfo['apellido']) : ($_SESSION['nombre_representante'] ?? 'Representante');
 
-// 2. Estudiantes representados (incluyendo estado guardado para $fecha_lista)
+// 2. Estudiantes representados
 $stmtEst = $conn->prepare("
     SELECT e.id_estudiante, e.nombre, e.apellido, e.cedula, e.fecha_nacimiento, e.sexo,
-           s.id_seccion, s.nombre_seccion, s.id_materia, m.nombre_materia, i.nombre AS nombre_institucion
+           s.nombre_seccion, m.nombre_materia, i.nombre AS nombre_institucion
     FROM estudiantes e
     LEFT JOIN secciones s ON e.id_seccion = s.id_seccion
     LEFT JOIN materias m ON s.id_materia = m.id_materia
@@ -185,24 +67,6 @@ $stmtEst->close();
 if ($filtro_est > 0 && !in_array($filtro_est, $estIdsValidos, true)) {
     $filtro_est = 0;
 }
-
-// Estado de asistencia ya registrado para $fecha_lista (para precargar las tarjetas móviles)
-$asistenciaFechaMapa = [];
-$stmtHoy = $conn->prepare("
-    SELECT i.id_estudiante, i.estado, i.motivo
-    FROM inasistencias i
-    INNER JOIN estudiantes e ON i.id_estudiante = e.id_estudiante
-    WHERE e.id_representante = ? AND i.fecha = ?
-");
-$stmtHoy->bind_param("is", $id_representante, $fecha_lista);
-$stmtHoy->execute();
-$resHoy = $stmtHoy->get_result();
-if ($resHoy) {
-    while ($h = $resHoy->fetch_assoc()) {
-        $asistenciaFechaMapa[(int) $h['id_estudiante']] = $h;
-    }
-}
-$stmtHoy->close();
 
 // 3. Notificaciones del representante
 if ($filtro_est > 0) {
@@ -469,162 +333,6 @@ $promedioGeneral = count($notas) > 0 ? number_format($sumaNotas / count($notas),
             font-size: 1rem;
             color: #0f172a;
         }
-        /* Pase de lista móvil (optimizado para teléfono) */
-        .fecha-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 12px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 14px 16px;
-            margin: 14px 0 18px 0;
-        }
-        .fecha-bar label {
-            margin: 0;
-            font-weight: 700;
-            color: #0f172a;
-            font-size: 0.95rem;
-        }
-        .fecha-bar input[type="date"] {
-            margin: 0;
-            max-width: 210px;
-            min-height: 44px;
-            font-size: 1rem;
-            font-weight: 600;
-        }
-        .lista-movil-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-            gap: 16px;
-        }
-        .est-check-card {
-            background: #ffffff;
-            border: 1px solid #cbd5e1;
-            border-radius: 14px;
-            padding: 16px;
-            text-align: left;
-            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
-        }
-        .est-check-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-        .est-check-name {
-            margin: 0;
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: #0f172a;
-        }
-        .est-check-sub {
-            margin: 3px 0 0 0;
-            font-size: 0.84rem;
-            color: #64748b;
-        }
-        .estado-toggle-group {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        .estado-opt {
-            position: relative;
-            margin: 0;
-        }
-        .estado-opt input[type="radio"] {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .estado-opt span {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 46px;
-            padding: 8px 6px;
-            border-radius: 10px;
-            border: 2px solid #cbd5e1;
-            background: #f8fafc;
-            color: #334155;
-            font-weight: 700;
-            font-size: 0.88rem;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.15s ease;
-            user-select: none;
-        }
-        .estado-opt input[type="radio"][value="Presente"]:checked + span {
-            background: #dcfce7;
-            border-color: #16a34a;
-            color: #166534;
-        }
-        .estado-opt input[type="radio"][value="Ausente"]:checked + span {
-            background: #fee2e2;
-            border-color: #dc2626;
-            color: #991b1b;
-        }
-        .estado-opt input[type="radio"][value="Justificado"]:checked + span {
-            background: #fef3c7;
-            border-color: #d97706;
-            color: #92400e;
-        }
-        .just-box {
-            margin-bottom: 10px;
-        }
-        .just-box select,
-        .obs-movil-input {
-            min-height: 42px;
-            font-size: 0.92rem;
-            margin-bottom: 0;
-        }
-        .btn-guardar-movil {
-            width: 100%;
-            max-width: 440px;
-            min-height: 50px;
-            font-size: 1rem;
-            font-weight: 700;
-            margin: 20px auto 0 auto;
-            display: block;
-        }
-        @media (max-width: 768px) {
-            .header-fijo {
-                flex-wrap: wrap;
-                padding: 10px 14px;
-                gap: 8px;
-            }
-            .header-fijo h2 {
-                font-size: 0.98rem;
-            }
-            .header-fijo nav ul {
-                flex-wrap: wrap;
-                gap: 6px;
-                justify-content: center;
-            }
-            .dashboard-container {
-                padding: 12px;
-            }
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 10px;
-            }
-            .notif-item {
-                flex-direction: column;
-            }
-            .fecha-bar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .fecha-bar input[type="date"] {
-                max-width: none;
-                width: 100%;
-            }
-        }
     </style>
 </head>
 <body>
@@ -637,9 +345,8 @@ $promedioGeneral = count($notas) > 0 ? number_format($sumaNotas / count($notas),
         <nav>
             <ul>
                 <li><span><?php echo htmlspecialchars($nombreRep); ?></span></li>
-                <li><a href="#pasar-lista">Pasar Lista</a></li>
                 <li><a href="#notificaciones">Notificaciones<?php echo $sinLeer > 0 ? " ({$sinLeer})" : ""; ?></a></li>
-                <li><a href="#asistencias">Historial</a></li>
+                <li><a href="#asistencias">Asistencias</a></li>
                 <li><a href="#notas">Notas</a></li>
                 <li><a href="../api/logout.php">Cerrar Sesión</a></li>
             </ul>
@@ -687,11 +394,11 @@ $promedioGeneral = count($notas) > 0 ? number_format($sumaNotas / count($notas),
         <!-- Filtro por Estudiante -->
         <?php if (count($estudiantes) > 1) { ?>
         <div class="filtro-pills">
-            <a href="panel_representante.php?fecha=<?php echo urlencode($fecha_lista); ?>" class="pill-btn <?php echo $filtro_est === 0 ? 'activo' : ''; ?>">
+            <a href="panel_representante.php" class="pill-btn <?php echo $filtro_est === 0 ? 'activo' : ''; ?>">
                 Todos mis Representados (<?php echo count($estudiantes); ?>)
             </a>
             <?php foreach ($estudiantes as $est) { ?>
-                <a href="panel_representante.php?fecha=<?php echo urlencode($fecha_lista); ?>&id_estudiante=<?php echo (int) $est['id_estudiante']; ?>"
+                <a href="panel_representante.php?id_estudiante=<?php echo (int) $est['id_estudiante']; ?>"
                    class="pill-btn <?php echo $filtro_est === (int) $est['id_estudiante'] ? 'activo' : ''; ?>">
                     <?php echo htmlspecialchars(trim($est['nombre'] . ' ' . $est['apellido'])); ?>
                     (Sección <?php echo htmlspecialchars($est['nombre_seccion'] ?? 'N/A'); ?>)
@@ -699,115 +406,6 @@ $promedioGeneral = count($notas) > 0 ? number_format($sumaNotas / count($notas),
             <?php } ?>
         </div>
         <?php } ?>
-
-        <!-- Sección 0: Pasar Lista Directamente desde el Teléfono -->
-        <div id="pasar-lista" class="container" style="margin-top: 16px; margin-bottom: 32px;">
-            <h2 style="text-align: left; margin-bottom: 4px;">Pasar Lista de Asistencia</h2>
-            <p style="text-align: left; margin-top: 0;">Marque directamente desde su teléfono si su representado asistió, faltó o presenta inasistencia justificada. El registro se sincroniza al instante con el docente y administración.</p>
-
-            <form method="POST" action="panel_representante.php?fecha=<?php echo urlencode($fecha_lista); ?><?php echo $filtro_est > 0 ? '&id_estudiante=' . $filtro_est : ''; ?>"
-                  style="max-width: none; margin: 0; padding: 0; background: transparent; box-shadow: none;">
-                <input type="hidden" name="accion" value="pasar_lista_representante">
-
-                <div class="fecha-bar">
-                    <label for="fecha_lista_input">Fecha del pase de lista:</label>
-                    <input type="date" id="fecha_lista_input" name="fecha"
-                           value="<?php echo htmlspecialchars($fecha_lista); ?>" required
-                           onchange="window.location.href='panel_representante.php?fecha=' + encodeURIComponent(this.value) + '<?php echo $filtro_est > 0 ? '&id_estudiante=' . $filtro_est : ''; ?>#pasar-lista';">
-                </div>
-
-                <?php
-                $estudiantesLista = [];
-                foreach ($estudiantes as $estItem) {
-                    if ($filtro_est > 0 && (int) $estItem['id_estudiante'] !== $filtro_est) {
-                        continue;
-                    }
-                    $estudiantesLista[] = $estItem;
-                }
-                ?>
-
-                <?php if (!empty($estudiantesLista)) { ?>
-                <div class="lista-movil-grid">
-                    <?php foreach ($estudiantesLista as $estItem) {
-                        $eId = (int) $estItem['id_estudiante'];
-                        $regHoy = $asistenciaFechaMapa[$eId] ?? null;
-                        $estadoActual = $regHoy ? (string) $regHoy['estado'] : 'Presente';
-                        $motivoActual = $regHoy ? (string) ($regHoy['motivo'] ?? '') : '';
-                        $tieneSeccion = !empty($estItem['id_materia']);
-
-                        $motivoPre = 'Cita Médica';
-                        foreach (['Cita Médica', 'Reposo', 'Malestar', 'Motivos Personales'] as $opM) {
-                            if ($motivoActual !== '' && stripos($motivoActual, $opM) !== false) {
-                                $motivoPre = $opM;
-                                break;
-                            }
-                        }
-                    ?>
-                    <div class="est-check-card">
-                        <div class="est-check-head">
-                            <div>
-                                <p class="est-check-name"><?php echo htmlspecialchars(trim($estItem['nombre'] . ' ' . $estItem['apellido'])); ?></p>
-                                <p class="est-check-sub">
-                                    Sección <?php echo htmlspecialchars($estItem['nombre_seccion'] ?? 'Sin asignar'); ?> |
-                                    <?php echo htmlspecialchars($estItem['nombre_materia'] ?? 'Sin materia'); ?>
-                                </p>
-                            </div>
-                            <?php if ($regHoy) {
-                                $bHoy = $estadoActual === 'Ausente' ? 'badge-ausente' : ($estadoActual === 'Justificado' ? 'badge-justificado' : 'badge-presente');
-                            ?>
-                                <span class="badge <?php echo $bHoy; ?>"><?php echo htmlspecialchars($estadoActual); ?></span>
-                            <?php } else { ?>
-                                <span class="badge-nota">Pendiente</span>
-                            <?php } ?>
-                        </div>
-
-                        <?php if ($tieneSeccion) { ?>
-                        <div class="estado-toggle-group">
-                            <label class="estado-opt">
-                                <input type="radio" name="estado[<?php echo $eId; ?>]" value="Presente"
-                                       <?php echo $estadoActual === 'Presente' ? 'checked' : ''; ?>
-                                       onchange="toggleJustBox(<?php echo $eId; ?>, false)">
-                                <span>Presente</span>
-                            </label>
-                            <label class="estado-opt">
-                                <input type="radio" name="estado[<?php echo $eId; ?>]" value="Ausente"
-                                       <?php echo $estadoActual === 'Ausente' ? 'checked' : ''; ?>
-                                       onchange="toggleJustBox(<?php echo $eId; ?>, false)">
-                                <span>Ausente</span>
-                            </label>
-                            <label class="estado-opt">
-                                <input type="radio" name="estado[<?php echo $eId; ?>]" value="Justificado"
-                                       <?php echo $estadoActual === 'Justificado' ? 'checked' : ''; ?>
-                                       onchange="toggleJustBox(<?php echo $eId; ?>, true)">
-                                <span>Justificado</span>
-                            </label>
-                        </div>
-
-                        <div id="just_box_<?php echo $eId; ?>" class="just-box" style="display: <?php echo $estadoActual === 'Justificado' ? 'block' : 'none'; ?>;">
-                            <select name="motivo_just[<?php echo $eId; ?>]">
-                                <option value="Cita Médica" <?php echo $motivoPre === 'Cita Médica' ? 'selected' : ''; ?>>Motivo: Cita Médica</option>
-                                <option value="Reposo" <?php echo $motivoPre === 'Reposo' ? 'selected' : ''; ?>>Motivo: Reposo</option>
-                                <option value="Malestar" <?php echo $motivoPre === 'Malestar' ? 'selected' : ''; ?>>Motivo: Malestar</option>
-                                <option value="Motivos Personales" <?php echo $motivoPre === 'Motivos Personales' ? 'selected' : ''; ?>>Motivo: Motivos Personales</option>
-                            </select>
-                        </div>
-
-                        <input type="text" class="obs-movil-input"
-                               name="motivo_extra[<?php echo $eId; ?>]"
-                               placeholder="Observación opcional (ej. llegó puntual, reposo 2 días...)">
-                        <?php } else { ?>
-                            <p style="font-size: 0.85rem; color: #b91c1c; margin: 0;">Este estudiante aún no tiene una sección/materia asignada.</p>
-                        <?php } ?>
-                    </div>
-                    <?php } ?>
-                </div>
-
-                <button type="submit" class="btn-guardar-movil">Guardar Pase de Lista del Día</button>
-                <?php } else { ?>
-                    <p style="color: #64748b;">No hay estudiantes vinculados a su cuenta para pasar lista.</p>
-                <?php } ?>
-            </form>
-        </div>
 
         <!-- Sección 1: Bandeja de Notificaciones -->
         <div id="notificaciones" class="container" style="margin-top: 16px; margin-bottom: 32px;">
@@ -1006,15 +604,6 @@ $promedioGeneral = count($notas) > 0 ? number_format($sumaNotas / count($notas),
             </div>
         </div>
     </div>
-
-    <script>
-        function toggleJustBox(estId, mostrar) {
-            var box = document.getElementById('just_box_' + estId);
-            if (box) {
-                box.style.display = mostrar ? 'block' : 'none';
-            }
-        }
-    </script>
 
 </body>
 </html>
