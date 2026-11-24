@@ -68,7 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             alertaYRedirigir("La ponderación supera el 100% del lapso. Actualmente tiene {$totalPct}% asignado y solo quedan {$restante}% disponibles.", $baseUrl);
         }
 
-        $idPeriodo = (int) ($seccionInfo['id_periodo'] ?? obtenerPeriodoActivoId($conn) ?? 0);
+        $idPeriodoRaw = (int) ($seccionInfo['id_periodo'] ?? obtenerPeriodoActivoId($conn) ?? 0);
+        $idPeriodo = $idPeriodoRaw > 0 ? $idPeriodoRaw : null;
         $stmtIns = $conn->prepare("
             INSERT INTO evaluaciones_plan (id_seccion, id_materia, id_docente, id_periodo, lapso, nombre_actividad, ponderacion, fecha_evaluacion)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -133,7 +134,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ponderacion     = (float) $evInfo['ponderacion'];
         $fechaRegistro   = $evInfo['fecha_evaluacion'] ?: date('Y-m-d');
         $lapsoEv         = $evInfo['lapso'] ?: $lapsoActual;
-        $idPeriodo       = (int) ($evInfo['id_periodo'] ?? $seccionInfo['id_periodo'] ?? obtenerPeriodoActivoId($conn) ?? 0);
+        $idPeriodoRaw    = (int) ($evInfo['id_periodo'] ?? $seccionInfo['id_periodo'] ?? obtenerPeriodoActivoId($conn) ?? 0);
+        $idPeriodo       = $idPeriodoRaw > 0 ? $idPeriodoRaw : null;
         $nomMat          = $seccionInfo['nombre_materia'];
 
         $stmtEstCheck = $conn->prepare("

@@ -178,6 +178,10 @@ if (!function_exists('obtenerPeriodoActivoId')) {
 
 if (!function_exists('alertaYRedirigir')) {
     function alertaYRedirigir(string $mensaje, ?string $url = null): void {
+        global $conn;
+        if (is_object($conn) && method_exists($conn, 'flushSyncCookies')) {
+            $conn->flushSyncCookies();
+        }
         $msgJs = json_encode($mensaje, JSON_UNESCAPED_UNICODE);
         if ($url !== null) {
             $urlJs = json_encode($url, JSON_UNESCAPED_UNICODE);

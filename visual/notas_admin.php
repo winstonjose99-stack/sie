@@ -10,9 +10,188 @@ if ($lapso_f !== '' && !in_array($lapso_f, $lapsosValidos, true)) {
     $lapso_f = '';
 }
 
-// Catálogos para filtros
+$urlRetorno = 'notas_admin.php?' . http_build_query([
+    'id_seccion' => $id_seccion_f,
+    'id_materia' => $id_materia_f,
+    'lapso'      => $lapso_f,
+]);
+
+// =========================================================================
+// ACCIONES POST ADMINISTRATIVAS: CREAR ACTIVIDAD (100%) O CARGAR/EDITAR NOTA
+// =========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $accion = trim($_POST['accion'] ?? '');
+
+    if ($accion === 'crear_actividad_admin') {
+        $idSecAct    = intval($_POST['id_seccion_act'] ?? 0);
+        $lapsoAct    = trim($_POST['lapso_act'] ?? '1er Lapso');
+        $nombreAct   = trim($_POST['nombre_actividad'] ?? '');
+        $ponderacion = round(floatval($_POST['ponderacion'] ?? 0), 2);
+        $fechaEval   = trim($_POST['fecha_evaluacion'] ?? date('Y-m-d'));
+
+        if (!in_array($lapsoAct, $lapsosValidos, true)) {
+            $lapsoAct = '1er Lapso';
+        }
+        if ($idSecAct <= 0 || $nombreAct === '' || $ponderacion <= 0 || $ponderacion > 100) {
+            alertaYRedirigir('Seleccione una sección, indique la actividad y una ponderación válida (1% a 100%).', $urlRetorno);
+        }
+
+        $stmtSecInfo = $conn->prepare("SELECT id_seccion, id_materia, id_docente, id_periodo FROM secciones WHERE id_seccion = ? LIMIT 1");
+        $stmtSecInfo->bind_param("i", $idSecAct);
+        $stmtSecInfo->execute();
+        $secRow = $stmtSecInfo->get_result()->fetch_assoc();
+        $stmtSecInfo->close();
+
+        if (!$secRow) {
+            alertaYRedirigir('La sección seleccionada no existe.', $urlRetorno);
+        }
+
+        $idMatAct = (int) $secRow['id_materia'];
+        $idDocAct = (int) $secRow['id_docente'];
+        $idPerRaw = (int) ($secRow['id_periodo'] ?? obtenerPeriodoActivoId($conn) ?? 0);
+        $idPerAct = $idPerRaw > 0 ? $idPerRaw : null;
+
+        $stmtSum = $conn->prepare("SELECT COALESCE(SUM(ponderacion), 0) AS total_pct FROM evaluaciones_plan WHERE id_seccion = ? AND id_materia = ? AND lapso = ?");
+        $stmtSum->bind_param("iis", $idSecAct, $idMatAct, $lapsoAct);
+        $stmtSum->execute();
+        $totalPct = (float) ($stmtSum->get_result()->fetch_assoc()['total_pct'] ?? 0);
+        $stmtSum->close();
+
+        if ($totalPct + $ponderacion > 100.001) {
+            $restante = max(0, round(100 - $totalPct, 2));
+            alertaYRedirigir("La ponderación supera el 100% en esa sección/lapso. Ya hay {$totalPct}% asignado y quedan {$restante}% disponibles.", $urlRetorno);
+        }
+
+        $stmtIns = $conn->prepare("
+            INSERT INTO evaluaciones_plan (id_seccion, id_materia, id_docente, id_periodo, lapso, nombre_actividad, ponderacion, fecha_evaluacion)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmtIns->bind_param("iiiissds", $idSecAct, $idMatAct, $idDocAct, $idPerAct, $lapsoAct, $nombreAct, $ponderacion, $fechaEval);
+        if ($stmtIns->execute()) {
+            $stmtIns->close();
+            $conn->close();
+            alertaYRedirigir("Actividad «{$nombreAct}» ({$ponderacion}%) creada y sincronizada con el Panel Docente.", $urlRetorno);
+        }
+        $stmtIns->close();
+        alertaYRedirigir('Error al crear la actividad en el plan de evaluación.', $urlRetorno);
+    }
+
+    if ($accion === 'guardar_nota_admin') {
+        $idEval = intval($_POST['id_evaluacion'] ?? 0);
+        $idEst  = intval($_POST['id_estudiante'] ?? 0);
+        $calif  = round(floatval($_POST['calificacion'] ?? -1), 2);
+        $obsTxt = trim($_POST['observacion'] ?? '');
+        $obsVal = $obsTxt !== '' ? $obsTxt : null;
+
+        if ($idEval <= 0 || $idEst <= 0 || $calif < 0 || $calif > 20) {
+            alertaYRedirigir('Debe seleccionar una actividad, un estudiante y una calificación entre 0 y 20.', $urlRetorno);
+        }
+
+        $stmtEv = $conn->prepare("
+            SELECT ep.id_evaluacion, ep.id_seccion, ep.id_materia, ep.id_docente, ep.id_periodo,
+                   ep.lapso, ep.nombre_actividad, ep.ponderacion, ep.fecha_evaluacion,
+                   m.nombre_materia
+            FROM evaluaciones_plan ep
+            INNER JOIN materias m ON ep.id_materia = m.id_materia
+            WHERE ep.id_evaluacion = ?
+            LIMIT 1
+        ");
+        $stmtEv->bind_param("i", $idEval);
+        $stmtEv->execute();
+        $ev = $stmtEv->get_result()->fetch_assoc();
+        $stmtEv->close();
+
+        if (!$ev) {
+            alertaYRedirigir('La actividad seleccionada no existe.', $urlRetorno);
+        }
+
+        $stmtEst = $conn->prepare("SELECT id_estudiante, nombre, apellido, id_seccion, id_representante FROM estudiantes WHERE id_estudiante = ? LIMIT 1");
+        $stmtEst->bind_param("i", $idEst);
+        $stmtEst->execute();
+        $est = $stmtEst->get_result()->fetch_assoc();
+        $stmtEst->close();
+
+        if (!$est || (int) $est['id_seccion'] !== (int) $ev['id_seccion']) {
+            alertaYRedirigir('El estudiante seleccionado no pertenece a la sección de esa actividad.', $urlRetorno);
+        }
+
+        $idMat    = (int) $ev['id_materia'];
+        $idDoc    = (int) $ev['id_docente'];
+        $idPerRaw = (int) ($ev['id_periodo'] ?? obtenerPeriodoActivoId($conn) ?? 0);
+        $idPer    = $idPerRaw > 0 ? $idPerRaw : null;
+        $lapsoEv  = $ev['lapso'] ?: '1er Lapso';
+        $nomAct   = $ev['nombre_actividad'];
+        $pond     = (float) $ev['ponderacion'];
+        $fechaReg = $ev['fecha_evaluacion'] ?: date('Y-m-d');
+        $nomMat   = $ev['nombre_materia'] ?? 'Materia';
+
+        // Upsert en notas_academicas (misma tabla que usa el docente)
+        $stmtChk = $conn->prepare("SELECT id_nota FROM notas_academicas WHERE id_estudiante = ? AND id_evaluacion = ? LIMIT 1");
+        $stmtChk->bind_param("ii", $idEst, $idEval);
+        $stmtChk->execute();
+        $ex = $stmtChk->get_result()->fetch_assoc();
+        $stmtChk->close();
+
+        $okSave = false;
+        if ($ex) {
+            $idNotaEx = (int) $ex['id_nota'];
+            $stmtUpd = $conn->prepare("
+                UPDATE notas_academicas
+                SET calificacion = ?, ponderacion = ?, evaluacion = ?, observacion = ?, fecha_registro = ?, id_docente = ?
+                WHERE id_nota = ?
+            ");
+            $stmtUpd->bind_param("ddsssii", $calif, $pond, $nomAct, $obsVal, $fechaReg, $idDoc, $idNotaEx);
+            $okSave = (bool) $stmtUpd->execute();
+            $stmtUpd->close();
+        } else {
+            $stmtInsN = $conn->prepare("
+                INSERT INTO notas_academicas (id_estudiante, id_materia, id_docente, id_periodo, id_evaluacion, lapso, evaluacion, ponderacion, calificacion, observacion, fecha_registro)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmtInsN->bind_param("iiiiissddss", $idEst, $idMat, $idDoc, $idPer, $idEval, $lapsoEv, $nomAct, $pond, $calif, $obsVal, $fechaReg);
+            $okSave = (bool) $stmtInsN->execute();
+            $stmtInsN->close();
+        }
+
+        if ($okSave) {
+            // Notificar al Portal de Representantes
+            $idRep = (int) ($est['id_representante'] ?? 0);
+            if ($idRep > 0) {
+                $stmtAc = $conn->prepare("SELECT COALESCE(SUM(calificacion * ponderacion / 100.0), 0) AS acum, COALESCE(SUM(ponderacion), 0) AS pct FROM notas_academicas WHERE id_estudiante = ? AND id_materia = ? AND lapso = ?");
+                $stmtAc->bind_param("iis", $idEst, $idMat, $lapsoEv);
+                $stmtAc->execute();
+                $acRow = $stmtAc->get_result()->fetch_assoc();
+                $stmtAc->close();
+
+                $acumPts   = number_format((float) ($acRow['acum'] ?? 0), 2);
+                $pctEval   = number_format((float) ($acRow['pct'] ?? 0), 0);
+                $nomEst    = trim($est['nombre'] . ' ' . $est['apellido']);
+                $aportePts = number_format(($calif * $pond) / 100.0, 2);
+                $califFmt  = number_format($calif, 2);
+                $pondFmt   = number_format($pond, 0);
+
+                $tituloN = "Nota registrada — {$nomMat} ({$pondFmt}%)";
+                $msgN    = "{$nomEst} obtuvo {$califFmt} / 20 (aporte ponderado: {$aportePts} pts — {$pondFmt}%) en «{$nomAct}» ({$lapsoEv}). Acumulado del lapso ({$pctEval}% evaluado): {$acumPts} / 20." . ($obsVal ? " Observación: {$obsVal}." : "");
+                registrarNotificacionRepresentante($conn, $idRep, $idEst, 'nota', $tituloN, $msgN);
+            }
+
+            $conn->close();
+            alertaYRedirigir('Calificación guardada desde Administración y sincronizada con el Panel Docente y Portal de Representantes.', $urlRetorno);
+        }
+
+        alertaYRedirigir('Error al guardar la calificación.', $urlRetorno);
+    }
+}
+
+// Catálogos para filtros y formularios administrativos
 $secciones = [];
-$resSec = $conn->query("SELECT id_seccion, nombre_seccion FROM secciones ORDER BY nombre_seccion ASC");
+$resSec = $conn->query("
+    SELECT s.id_seccion, s.nombre_seccion, m.nombre_materia, d.nombre AS doc_nombre, d.apellido AS doc_apellido
+    FROM secciones s
+    LEFT JOIN materias m ON s.id_materia = m.id_materia
+    LEFT JOIN docentes d ON s.id_docente = d.id_docente
+    ORDER BY s.nombre_seccion ASC
+");
 if ($resSec) {
     while ($s = $resSec->fetch_assoc()) {
         $secciones[] = $s;
@@ -24,6 +203,34 @@ $resMat = $conn->query("SELECT id_materia, nombre_materia FROM materias ORDER BY
 if ($resMat) {
     while ($m = $resMat->fetch_assoc()) {
         $materias[] = $m;
+    }
+}
+
+$actividadesCatalogo = [];
+$resActCat = $conn->query("
+    SELECT ep.id_evaluacion, ep.id_seccion, ep.lapso, ep.nombre_actividad, ep.ponderacion,
+           s.nombre_seccion, m.nombre_materia
+    FROM evaluaciones_plan ep
+    INNER JOIN secciones s ON ep.id_seccion = s.id_seccion
+    INNER JOIN materias m ON ep.id_materia = m.id_materia
+    ORDER BY s.nombre_seccion ASC, ep.lapso ASC, ep.fecha_evaluacion ASC
+");
+if ($resActCat) {
+    while ($ac = $resActCat->fetch_assoc()) {
+        $actividadesCatalogo[] = $ac;
+    }
+}
+
+$estudiantesCatalogo = [];
+$resEstCat = $conn->query("
+    SELECT e.id_estudiante, e.nombre, e.apellido, e.cedula, e.id_seccion, s.nombre_seccion
+    FROM estudiantes e
+    LEFT JOIN secciones s ON e.id_seccion = s.id_seccion
+    ORDER BY s.nombre_seccion ASC, e.apellido ASC, e.nombre ASC
+");
+if ($resEstCat) {
+    while ($ec = $resEstCat->fetch_assoc()) {
+        $estudiantesCatalogo[] = $ec;
     }
 }
 
@@ -76,7 +283,7 @@ if ($resPlan) {
 }
 $stmtPlan->close();
 
-// 2. Calificaciones detalladas cargadas por docentes
+// 2. Calificaciones detalladas cargadas por docentes y administración
 $sqlNotas = "
     SELECT n.id_nota, n.id_estudiante, n.lapso, n.evaluacion, n.ponderacion, n.calificacion, n.observacion, n.fecha_registro,
            e.nombre AS est_nombre, e.apellido AS est_apellido, e.cedula AS est_cedula,
@@ -191,7 +398,8 @@ $pdfQuery = http_build_query([
             color: #334155;
             text-align: left;
         }
-        .filtros-grid select {
+        .filtros-grid select,
+        .filtros-grid input {
             margin-bottom: 0;
         }
         .filtros-acciones {
@@ -212,6 +420,36 @@ $pdfQuery = http_build_query([
             border-radius: 999px;
             font-size: 0.78rem;
             font-weight: 700;
+        }
+        .admin-forms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+        .admin-form-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+            text-align: left;
+        }
+        .admin-form-card h3 {
+            margin: 0 0 6px 0;
+            text-align: left;
+        }
+        .admin-form-card p {
+            margin: 0 0 14px 0;
+            font-size: 0.88rem;
+            color: #475569;
+        }
+        .admin-form-card form {
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            box-shadow: none;
         }
     </style>
 </head>
@@ -235,7 +473,7 @@ $pdfQuery = http_build_query([
     <div class="dashboard-container">
         <div class="welcome-card">
             <h2>Consolidado Institucional de Notas Académicas (100%)</h2>
-            <p>Supervise en tiempo real los planes de evaluación y las calificaciones ponderadas cargadas por todos los docentes.</p>
+            <p>Supervise, cargue o actualice en tiempo real las actividades ponderadas y calificaciones sincronizadas con los docentes y el Portal de Representantes.</p>
         </div>
 
         <!-- KPIs Administrativos de Notas -->
@@ -274,7 +512,7 @@ $pdfQuery = http_build_query([
                     <option value="0">Todas las secciones</option>
                     <?php foreach ($secciones as $s) { ?>
                         <option value="<?php echo (int) $s['id_seccion']; ?>" <?php echo $id_seccion_f === (int) $s['id_seccion'] ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($s['nombre_seccion']); ?>
+                            <?php echo htmlspecialchars($s['nombre_seccion'] . ' — ' . ($s['nombre_materia'] ?? '')); ?>
                         </option>
                     <?php } ?>
                 </select>
@@ -311,9 +549,84 @@ $pdfQuery = http_build_query([
             </div>
         </form>
 
+        <!-- Gestión directa desde Administración (carga de actividades y notas sincronizadas) -->
+        <div class="admin-forms-grid">
+            <div class="admin-form-card">
+                <h3>Cargar o Actualizar Nota (Administración)</h3>
+                <p>Las notas guardadas aquí actualizan de inmediato el Panel Docente y envían notificación al Portal de Representantes.</p>
+                <form method="POST" action="<?php echo htmlspecialchars($urlRetorno); ?>">
+                    <input type="hidden" name="accion" value="guardar_nota_admin">
+
+                    <label for="adm_eval">Actividad Ponderada:</label>
+                    <select id="adm_eval" name="id_evaluacion" required onchange="filtrarEstudiantesPorSeccion()">
+                        <option value="">-- Seleccione una actividad --</option>
+                        <?php foreach ($actividadesCatalogo as $ac) { ?>
+                            <option value="<?php echo (int) $ac['id_evaluacion']; ?>" data-sec="<?php echo (int) $ac['id_seccion']; ?>">
+                                <?php echo htmlspecialchars($ac['nombre_seccion'] . ' | ' . $ac['nombre_materia'] . ' | ' . $ac['lapso'] . ' — ' . $ac['nombre_actividad'] . ' (' . number_format((float) $ac['ponderacion'], 0) . '%)'); ?>
+                            </option>
+                        <?php } ?>
+                    </select>
+
+                    <label for="adm_est">Estudiante:</label>
+                    <select id="adm_est" name="id_estudiante" required>
+                        <option value="">-- Seleccione un estudiante --</option>
+                        <?php foreach ($estudiantesCatalogo as $ec) { ?>
+                            <option value="<?php echo (int) $ec['id_estudiante']; ?>" data-sec="<?php echo (int) ($ec['id_seccion'] ?? 0); ?>">
+                                <?php echo htmlspecialchars($ec['apellido'] . ', ' . $ec['nombre'] . ' (Sección ' . ($ec['nombre_seccion'] ?? 'N/A') . ' — C.I. ' . $ec['cedula'] . ')'); ?>
+                            </option>
+                        <?php } ?>
+                    </select>
+
+                    <label for="adm_calif">Calificación (0 a 20 pts):</label>
+                    <input type="number" id="adm_calif" name="calificacion" min="0" max="20" step="0.5" placeholder="Ej. 17.5" required>
+
+                    <label for="adm_obs">Observación (opcional):</label>
+                    <input type="text" id="adm_obs" name="observacion" placeholder="Ej. Nota cargada/ajustada por Coordinación">
+
+                    <button type="submit">Guardar Nota y Sincronizar</button>
+                </form>
+            </div>
+
+            <div class="admin-form-card">
+                <h3>Agregar Actividad al Plan (100%)</h3>
+                <p>Cree una nueva actividad ponderada para cualquier sección y lapso (validando no exceder el 100%).</p>
+                <form method="POST" action="<?php echo htmlspecialchars($urlRetorno); ?>">
+                    <input type="hidden" name="accion" value="crear_actividad_admin">
+
+                    <label for="act_sec">Sección y Materia:</label>
+                    <select id="act_sec" name="id_seccion_act" required>
+                        <option value="">-- Seleccione sección --</option>
+                        <?php foreach ($secciones as $s) { ?>
+                            <option value="<?php echo (int) $s['id_seccion']; ?>">
+                                <?php echo htmlspecialchars($s['nombre_seccion'] . ' — ' . ($s['nombre_materia'] ?? 'Sin materia') . ' (' . trim(($s['doc_nombre'] ?? '') . ' ' . ($s['doc_apellido'] ?? '')) . ')'); ?>
+                            </option>
+                        <?php } ?>
+                    </select>
+
+                    <label for="act_lapso">Lapso:</label>
+                    <select id="act_lapso" name="lapso_act" required>
+                        <?php foreach ($lapsosValidos as $lp) { ?>
+                            <option value="<?php echo htmlspecialchars($lp); ?>"><?php echo htmlspecialchars($lp); ?></option>
+                        <?php } ?>
+                    </select>
+
+                    <label for="act_nom">Nombre de la Actividad:</label>
+                    <input type="text" id="act_nom" name="nombre_actividad" placeholder="Ej. Actividad 3: Proyecto Final" required>
+
+                    <label for="act_pond">Ponderación (%):</label>
+                    <input type="number" id="act_pond" name="ponderacion" min="1" max="100" step="1" value="25" required>
+
+                    <label for="act_fecha">Fecha de Evaluación:</label>
+                    <input type="date" id="act_fecha" name="fecha_evaluacion" value="<?php echo date('Y-m-d'); ?>" required>
+
+                    <button type="submit">Crear Actividad en el Plan</button>
+                </form>
+            </div>
+        </div>
+
         <!-- Bloque 1: Avance de Planes de Evaluación por Docente -->
         <div class="container" style="margin-top: 0; margin-bottom: 28px;">
-            <h2>1. Planes de Evaluación Configurados por Docentes</h2>
+            <h2>1. Planes de Evaluación Configurados (Docentes y Administración)</h2>
             <p>Seguimiento del porcentaje planificado sobre el 100% en cada sección y materia.</p>
 
             <div class="table-responsive">
@@ -359,7 +672,7 @@ $pdfQuery = http_build_query([
         <!-- Bloque 2: Consolidado Ponderado por Estudiante -->
         <div class="container" style="margin-top: 0; margin-bottom: 28px;">
             <h2>2. Consolidado Ponderado por Estudiante</h2>
-            <p>Nota acumulada sobre 20 puntos calculada automáticamente a partir de las ponderaciones cargadas por los docentes.</p>
+            <p>Nota acumulada sobre 20 puntos calculada automáticamente a partir de las ponderaciones cargadas.</p>
 
             <div class="table-responsive">
                 <table>
@@ -461,6 +774,25 @@ $pdfQuery = http_build_query([
             </div>
         </div>
     </div>
+
+    <script>
+        function filtrarEstudiantesPorSeccion() {
+            var evalSel = document.getElementById('adm_eval');
+            var estSel  = document.getElementById('adm_est');
+            if (!evalSel || !estSel) return;
+            var opt = evalSel.options[evalSel.selectedIndex];
+            var secId = opt ? opt.getAttribute('data-sec') : '';
+            estSel.value = '';
+            for (var i = 0; i < estSel.options.length; i++) {
+                var o = estSel.options[i];
+                if (!o.value) {
+                    o.hidden = false;
+                    continue;
+                }
+                o.hidden = (secId && o.getAttribute('data-sec') !== secId);
+            }
+        }
+    </script>
 
 </body>
 </html>

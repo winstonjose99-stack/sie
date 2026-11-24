@@ -132,6 +132,7 @@ class SQLiteStmtCompat {
 class SQLiteMysqliCompat {
     private PDO $pdo;
     private array $journal = [];
+    private bool $journalDirty = false;
     public ?string $connect_error = null;
     public int $errno = 0;
     public string $error = '';
@@ -150,11 +151,22 @@ class SQLiteMysqliCompat {
         $this->replayCookieJournal();
     }
 
+    private function readCompressedSyncCookie(): string {
+        $combined = (string) ($_COOKIE['SIE_DB_SYNC'] ?? '');
+        for ($i = 1; $i <= 3; $i++) {
+            if (!empty($_COOKIE['SIE_DB_SYNC_' . $i])) {
+                $combined .= (string) $_COOKIE['SIE_DB_SYNC_' . $i];
+            }
+        }
+        return $combined;
+    }
+
     private function replayCookieJournal(): void {
-        if (empty($_COOKIE['SIE_DB_SYNC'])) {
+        $combined = $this->readCompressedSyncCookie();
+        if ($combined === '') {
             return;
         }
-        $raw = @base64_decode((string) $_COOKIE['SIE_DB_SYNC'], true);
+        $raw = @base64_decode($combined, true);
         if (!$raw) {
             return;
         }
@@ -162,10 +174,32 @@ class SQLiteMysqliCompat {
         if (!$json) {
             return;
         }
-        $entries = json_decode($json, true);
-        if (!is_array($entries)) {
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
             return;
         }
+
+        // Soportar tanto formato compacto deduplicado ['s' => [...], 'e' => [...]] como formato legado
+        $entries = [];
+        if (isset($decoded['s'], $decoded['e']) && is_array($decoded['s']) && is_array($decoded['e'])) {
+            $sqlPool = $decoded['s'];
+            foreach ($decoded['e'] as $item) {
+                if (!is_array($item) || count($item) < 3) {
+                    continue;
+                }
+                $sqlText = $sqlPool[$item[1]] ?? '';
+                if ($sqlText !== '') {
+                    $entries[] = [
+                        'id'     => (string) $item[0],
+                        'sql'    => (string) $sqlText,
+                        'params' => is_array($item[2]) ? $item[2] : [],
+                    ];
+                }
+            }
+        } else {
+            $entries = $decoded;
+        }
+
         $this->journal = $entries;
         foreach ($entries as $entry) {
             if (empty($entry['id']) || empty($entry['sql'])) {
@@ -187,8 +221,28 @@ class SQLiteMysqliCompat {
         }
     }
 
+    private function encodeJournalCompact(array $entries): string {
+        $sqlPool = [];
+        $sqlIndexMap = [];
+        $compactEntries = [];
+        foreach ($entries as $entry) {
+            $sql = (string) ($entry['sql'] ?? '');
+            if (!isset($sqlIndexMap[$sql])) {
+                $sqlIndexMap[$sql] = count($sqlPool);
+                $sqlPool[] = $sql;
+            }
+            $compactEntries[] = [
+                (string) ($entry['id'] ?? ''),
+                $sqlIndexMap[$sql],
+                $entry['params'] ?? [],
+            ];
+        }
+        $payload = json_encode(['s' => $sqlPool, 'e' => $compactEntries], JSON_UNESCAPED_UNICODE);
+        return base64_encode((string) gzdeflate((string) $payload, 9));
+    }
+
     public function recordWrite(string $sql, array $params = []): void {
-        $id = substr(md5($sql . serialize($params) . microtime(true)), 0, 12);
+        $id = substr(md5($sql . serialize($params) . microtime(true) . mt_rand()), 0, 12);
         try {
             $ins = $this->pdo->prepare('INSERT OR IGNORE INTO _sync_meta (id) VALUES (?)');
             $ins->execute([$id]);
@@ -199,20 +253,53 @@ class SQLiteMysqliCompat {
             'sql'    => $sql,
             'params' => $params,
         ];
-        if (count($this->journal) > 25) {
-            $this->journal = array_slice($this->journal, -25);
+        if (count($this->journal) > 120) {
+            $this->journal = array_slice($this->journal, -120);
         }
-        if (!headers_sent()) {
-            $compressed = base64_encode((string) gzdeflate((string) json_encode($this->journal, JSON_UNESCAPED_UNICODE), 9));
-            if (strlen($compressed) < 3800) {
-                setcookie('SIE_DB_SYNC', $compressed, [
-                    'expires'  => time() + 86400,
-                    'path'     => '/',
-                    'httponly' => true,
-                    'samesite' => 'Lax',
-                ]);
+        $this->journalDirty = true;
+    }
+
+    public function flushSyncCookies(): void {
+        if (!$this->journalDirty || headers_sent()) {
+            return;
+        }
+        $maxTotalBytes = 14000; // 4 cookies x 3500 bytes
+        $chunkSize     = 3500;
+
+        // Recortar entradas más antiguas si supera el límite, garantizando que las escrituras más recientes SIEMPRE se guarden
+        $compressed = $this->encodeJournalCompact($this->journal);
+        while (strlen($compressed) > $maxTotalBytes && count($this->journal) > 1) {
+            array_shift($this->journal);
+            $compressed = $this->encodeJournalCompact($this->journal);
+        }
+
+        $chunks = str_split($compressed, $chunkSize);
+        $opts = [
+            'expires'  => time() + 86400,
+            'path'     => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ];
+        $optsExpire = [
+            'expires'  => time() - 42000,
+            'path'     => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ];
+
+        for ($i = 0; $i < 4; $i++) {
+            $cookieName = $i === 0 ? 'SIE_DB_SYNC' : 'SIE_DB_SYNC_' . $i;
+            if (isset($chunks[$i]) && $chunks[$i] !== '') {
+                setcookie($cookieName, $chunks[$i], $opts);
+                $_COOKIE[$cookieName] = $chunks[$i];
+            } else {
+                if (isset($_COOKIE[$cookieName])) {
+                    setcookie($cookieName, '', $optsExpire);
+                    unset($_COOKIE[$cookieName]);
+                }
             }
         }
+        $this->journalDirty = false;
     }
 
     public function set_charset(string $charset): bool {
@@ -262,7 +349,12 @@ class SQLiteMysqliCompat {
     }
 
     public function close(): bool {
+        $this->flushSyncCookies();
         return true;
+    }
+
+    public function __destruct() {
+        $this->flushSyncCookies();
     }
 
     private function initializeSchemaAndSeed(): void {
