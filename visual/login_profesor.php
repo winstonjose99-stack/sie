@@ -15,6 +15,7 @@
         <nav>
             <ul>
                 <li><a href="inicio.html">Inicio</a></li>
+                <li><a href="login_representante.php">Portal Representantes</a></li>
                 <li><a href="iniciar_sesion.html">Administración</a></li>
             </ul>
         </nav>
@@ -40,6 +41,7 @@
             </form>
 
             <div class="auth-footer">
+                <span>¿Es usted representante? <a href="login_representante.php">Acceso Portal Representantes</a></span>
                 <span>¿Pertenece al personal directivo? <a href="iniciar_sesion.html">Acceso Administración</a></span>
             </div>
         </div>

@@ -59,6 +59,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $stmt_info = $conn->prepare("
         SELECT e.nombre AS est_nombre, e.apellido AS est_apellido,
                e.cedula AS est_cedula, e.fecha_nacimiento AS est_nacimiento, e.sexo AS est_sexo,
+               e.id_representante,
                r.nombre AS rep_nombre, r.apellido AS rep_apellido, r.telefono AS rep_telefono
         FROM estudiantes e
         LEFT JOIN representantes r ON e.id_representante = r.id_representante
@@ -75,6 +76,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $presentes      = 0;
     $faltasNuevas   = 0;
     $actualizadas   = 0;
+    $portalNotifs   = 0;
     $waEnviados     = 0;
     $waFallidos     = 0;
     $zapierEnviados = 0;
@@ -121,11 +123,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $existente = $res_check ? $res_check->fetch_assoc() : null;
 
         $enviarAlerta = false;
+        $registroGuardado = false;
         if ($existente) {
             $id_ina = (int) $existente['id_inasistencia'];
             $stmt_update->bind_param("ssii", $estado_bd, $motivo_bd, $id_docente, $id_ina);
             if ($stmt_update->execute()) {
                 $actualizadas++;
+                $registroGuardado = true;
                 if (in_array($estado_bd, ['Ausente', 'Justificado'], true)) {
                     $enviarAlerta = true;
                 }
@@ -133,6 +137,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         } else {
             $stmt_insert->bind_param("iiisss", $id_estudiante, $id_materia, $id_docente, $fecha, $estado_bd, $motivo_bd);
             if ($stmt_insert->execute()) {
+                $registroGuardado = true;
                 if (in_array($estado_bd, ['Ausente', 'Justificado'], true)) {
                     $faltasNuevas++;
                     $enviarAlerta = true;
@@ -140,10 +145,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
 
-        // Enviar datos a Zapier (HTTP POST JSON) y notificación de WhatsApp cuando se marca inasistencia
+        $nombre_estudiante    = trim($info['est_nombre'] . ' ' . $info['est_apellido']);
+        $nombre_representante = trim(($info['rep_nombre'] ?? '') . ' ' . ($info['rep_apellido'] ?? '')) ?: 'Representante';
+        $id_rep               = (int) ($info['id_representante'] ?? 0);
+
+        // Registrar notificación interna en el Portal de Representantes (asistió, faltó o justificado)
+        if ($registroGuardado && $id_rep > 0) {
+            if ($estado_bd === 'Presente') {
+                $tipoNotif   = 'asistencia';
+                $tituloNotif = "Asistencia confirmada — {$nombre_materia}";
+                $msgPortal   = "{$nombre_estudiante} asistió a la clase de {$nombre_materia} (Sección {$nombre_seccion}) el día {$fecha}.";
+            } elseif ($estado_bd === 'Justificado') {
+                $tipoNotif   = 'justificado';
+                $tituloNotif = "Inasistencia justificada — {$nombre_materia}";
+                $msgPortal   = "{$nombre_estudiante} registró inasistencia justificada en {$nombre_materia} (Sección {$nombre_seccion}) el {$fecha}." . ($motivo_bd ? " Motivo: {$motivo_bd}." : "");
+            } else {
+                $tipoNotif   = 'ausencia';
+                $tituloNotif = "Inasistencia registrada — {$nombre_materia}";
+                $msgPortal   = "{$nombre_estudiante} no asistió a la clase de {$nombre_materia} (Sección {$nombre_seccion}) el día {$fecha}. Estado: Ausente.";
+            }
+            if (registrarNotificacionRepresentante($conn, $id_rep, $id_estudiante, $tipoNotif, $tituloNotif, $msgPortal)) {
+                $portalNotifs++;
+            }
+        }
+
+        // Enviar datos a Zapier (si está habilitado) y notificación de WhatsApp cuando se marca inasistencia
         if ($enviarAlerta) {
-            $nombre_estudiante    = trim($info['est_nombre'] . ' ' . $info['est_apellido']);
-            $nombre_representante = trim(($info['rep_nombre'] ?? '') . ' ' . ($info['rep_apellido'] ?? '')) ?: 'Representante';
             $detalleEstado        = $motivo_bd ? "{$estado_bd} ({$motivo_bd})" : $estado_bd;
 
             $mensaje = "Estimado/a {$nombre_representante}, le informamos que el estudiante *{$nombre_estudiante}* (Sección {$nombre_seccion}) no asistió el día {$fecha} a la materia *{$nombre_materia}* [Estado: {$detalleEstado}].";
@@ -202,6 +229,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $resumen = "Lista de asistencia guardada ({$fecha}). Presentes: {$presentes}, Inasistencias nuevas: {$faltasNuevas}";
     if ($actualizadas > 0) {
         $resumen .= ", registros actualizados: {$actualizadas}";
+    }
+    if ($portalNotifs > 0) {
+        $resumen .= ". Notificaciones enviadas al Portal de Representantes: {$portalNotifs}";
     }
     if ($zapierEnviados > 0) {
         $resumen .= ". Enviadas a Zapier: {$zapierEnviados}";

@@ -33,6 +33,12 @@ if (!function_exists('enviarNotificacionWhatsApp')) {
         $apiVersion = trim((string) ($whatsappConfig['api_version'] ?? 'v25.0'));
 
         $telefono = preg_replace('/[^0-9]/', '', $telefonoDestino);
+        // Normalizar formato local venezolano (ej. 04123099683 -> 584123099683)
+        if (strlen($telefono) === 11 && strpos($telefono, '0') === 0) {
+            $telefono = '58' . substr($telefono, 1);
+        } elseif (strlen($telefono) === 10 && strpos($telefono, '4') === 0) {
+            $telefono = '58' . $telefono;
+        }
         if (strlen($telefono) < 10) {
             return [
                 'ok'        => false,
@@ -64,8 +70,8 @@ if (!function_exists('enviarNotificacionWhatsApp')) {
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => $payload,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_TIMEOUT        => 5,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 10,
             CURLOPT_HTTPHEADER     => [
                 'Authorization: Bearer ' . $token,
                 'Content-Type: application/json',
@@ -100,8 +106,15 @@ if (!function_exists('enviarNotificacionWhatsApp')) {
         $ok = ($httpCode >= 200 && $httpCode < 300);
         $errorMsg = '';
         if (!$ok) {
-            $decoded = json_decode($response, true);
-            $errorMsg = $decoded['error']['message'] ?? ("HTTP {$httpCode}");
+            $decoded   = json_decode($response, true);
+            $errorCode = (int) ($decoded['error']['code'] ?? 0);
+            if ($errorCode === 131030) {
+                $errorMsg = "El número {$telefono} no está autorizado en la lista de destinatarios de prueba en Meta for Developers (#131030).";
+            } elseif ($errorCode === 190) {
+                $errorMsg = 'El token de WhatsApp Cloud API expiró o es inválido (#190).';
+            } else {
+                $errorMsg = $decoded['error']['message'] ?? ("HTTP {$httpCode}");
+            }
             error_log("WhatsApp API Error [{$telefono}] HTTP {$httpCode}: {$response}");
         } else {
             error_log("WhatsApp API OK [{$telefono}] HTTP {$httpCode}: {$response}");

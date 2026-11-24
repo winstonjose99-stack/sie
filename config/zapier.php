@@ -7,12 +7,20 @@
  * o configurarla desde el panel web en api/webhook_zapier.php (se guarda en config/zapier.local.php).
  */
 
+if (!defined('ZAPIER_WEBHOOK_ENABLED')) {
+    define('ZAPIER_WEBHOOK_ENABLED', false);
+}
+
 if (!defined('ZAPIER_WEBHOOK_URL_DEFAULT')) {
-    define('ZAPIER_WEBHOOK_URL_DEFAULT', 'https://hooks.zapier.com/hooks/catch/29530375/45l3oxg/');
+    define('ZAPIER_WEBHOOK_URL_DEFAULT', '');
 }
 
 if (!function_exists('obtenerZapierWebhookUrl')) {
     function obtenerZapierWebhookUrl(): string {
+        if (!ZAPIER_WEBHOOK_ENABLED) {
+            return '';
+        }
+
         $envUrl = getenv('ZAPIER_WEBHOOK_URL') ?: ($_ENV['ZAPIER_WEBHOOK_URL'] ?? ($_SERVER['ZAPIER_WEBHOOK_URL'] ?? ''));
         if (!empty($envUrl)) {
             return trim((string) $envUrl);

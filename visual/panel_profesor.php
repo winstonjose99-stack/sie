@@ -146,6 +146,9 @@ $stmt_guardadas->close();
                                 <a href="registrar_inasistencia.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-asistencia">
                                     Tomar Asistencia
                                 </a>
+                                <a href="registrar_notas.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-editar">
+                                    Cargar Notas
+                                </a>
                                 <a href="asistencias_guardadas.php?id_seccion=<?php echo (int) $sec['id_seccion']; ?>&id_materia=<?php echo (int) $sec['id_materia']; ?>" class="btn-ver">
                                     Asistencias Guardadas
                                 </a>

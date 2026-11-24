@@ -25,19 +25,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->execute()) {
             $mensajeResultado = 'Asistencia registrada exitosamente.';
 
-            if (in_array(strtolower($estado), ['ausente', 'falta'], true)) {
-                $sql_telefono = "SELECT e.nombre, e.apellido, r.telefono
-                                 FROM representantes r
-                                 JOIN estudiantes e ON r.id_representante = e.id_representante
-                                 WHERE e.id_estudiante = ?";
-                $stmt_tel = $conn->prepare($sql_telefono);
-                $stmt_tel->bind_param('i', $id_estudiante);
-                $stmt_tel->execute();
-                $result_telefono = $stmt_tel->get_result();
+            $sql_telefono = "SELECT e.nombre, e.apellido, e.id_representante, r.telefono
+                             FROM representantes r
+                             JOIN estudiantes e ON r.id_representante = e.id_representante
+                             WHERE e.id_estudiante = ?";
+            $stmt_tel = $conn->prepare($sql_telefono);
+            $stmt_tel->bind_param('i', $id_estudiante);
+            $stmt_tel->execute();
+            $result_telefono = $stmt_tel->get_result();
 
-                if ($row = $result_telefono->fetch_assoc()) {
-                    $nombreEst = trim($row['nombre'] . ' ' . $row['apellido']);
-                    $mensaje   = "Hola, le informamos que el estudiante {$nombreEst} ha faltado el día {$fecha}.";
+            if ($row = $result_telefono->fetch_assoc()) {
+                $nombreEst = trim($row['nombre'] . ' ' . $row['apellido']);
+                $idRep     = (int) ($row['id_representante'] ?? 0);
+                $esFalta   = in_array(strtolower($estado), ['ausente', 'falta'], true);
+
+                if ($idRep > 0) {
+                    $tipoNotif   = $esFalta ? 'ausencia' : 'asistencia';
+                    $tituloNotif = $esFalta ? 'Inasistencia registrada' : 'Asistencia confirmada';
+                    $msgPortal   = $esFalta
+                        ? "El estudiante {$nombreEst} no asistió a clase el día {$fecha} ({$estado})."
+                        : "El estudiante {$nombreEst} asistió a clase el día {$fecha} ({$estado}).";
+                    registrarNotificacionRepresentante($conn, $idRep, $id_estudiante, $tipoNotif, $tituloNotif, $msgPortal);
+                    $mensajeResultado .= ' Notificación publicada en el Portal de Representantes.';
+                }
+
+                if ($esFalta) {
+                    $mensaje = "Hola, le informamos que el estudiante {$nombreEst} ha faltado el día {$fecha}.";
 
                     if (zapierWebhookEstaConfigurado()) {
                         $zap = enviarInasistenciaAZapier([
@@ -56,18 +69,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
 
-                    $wa        = enviarNotificacionWhatsApp($row['telefono'], $mensaje);
+                    $wa = enviarNotificacionWhatsApp($row['telefono'], $mensaje);
 
                     if ($wa['ok']) {
                         $mensajeResultado .= ' Notificación de WhatsApp enviada.';
                     } else {
                         $mensajeResultado .= ' No se pudo enviar WhatsApp (' . $wa['error'] . ').';
                     }
-                } else {
-                    $mensajeResultado .= ' No se encontró un representante asignado para enviar la alerta.';
                 }
-                $stmt_tel->close();
             }
+            $stmt_tel->close();
 
             $stmt->close();
             $conn->close();

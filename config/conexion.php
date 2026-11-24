@@ -22,7 +22,7 @@ if (!$esEntornoVercel || (getenv('DB_HOST') && getenv('DB_HOST') !== 'localhost'
 // Fallback automático a SQLite precargado cuando se ejecuta en Vercel Serverless sin MySQL externo
 if ($conn === null) {
     require_once __DIR__ . '/sqlite_fallback.php';
-    $sqlitePath = rtrim(sys_get_temp_dir(), '/\\') . '/sistema_asistencias_v1.sqlite';
+    $sqlitePath = rtrim(sys_get_temp_dir(), '/\\') . '/sistema_asistencias_v2.sqlite';
     $conn = new SQLiteMysqliCompat($sqlitePath);
 }
 
@@ -46,6 +46,10 @@ if (!function_exists('sincronizarCookieSesion')) {
         if (isset($_SESSION['id_docente'])) {
             $payload['id_docente']     = (int) $_SESSION['id_docente'];
             $payload['nombre_docente'] = (string) ($_SESSION['nombre_docente'] ?? 'Profesor');
+        }
+        if (isset($_SESSION['id_representante'])) {
+            $payload['id_representante']     = (int) $_SESSION['id_representante'];
+            $payload['nombre_representante'] = (string) ($_SESSION['nombre_representante'] ?? 'Representante');
         }
         if (empty($payload)) {
             return;
@@ -80,7 +84,7 @@ if (!function_exists('iniciarSesionSegura')) {
             @session_start();
         }
         // Restaurar sesión desde cookie firmada en entornos Serverless (Vercel) si la instancia cambió
-        if (!isset($_SESSION['id']) && !isset($_SESSION['id_docente']) && !empty($_COOKIE['SIE_AUTH'])) {
+        if (!isset($_SESSION['id']) && !isset($_SESSION['id_docente']) && !isset($_SESSION['id_representante']) && !empty($_COOKIE['SIE_AUTH'])) {
             $parts = explode('.', (string) $_COOKIE['SIE_AUTH'], 2);
             if (count($parts) === 2) {
                 [$dataB64, $sig] = $parts;
@@ -115,6 +119,50 @@ if (!function_exists('verificarSesionDocente')) {
             header("Location: " . $rutaLogin);
             exit();
         }
+    }
+}
+
+if (!function_exists('verificarSesionRepresentante')) {
+    function verificarSesionRepresentante(string $rutaLogin = 'login_representante.php'): void {
+        iniciarSesionSegura();
+        if (!isset($_SESSION['id_representante'])) {
+            header("Location: " . $rutaLogin);
+            exit();
+        }
+    }
+}
+
+if (!function_exists('normalizarTelefonoVenezuela')) {
+    function normalizarTelefonoVenezuela(string $telefono): string {
+        $digitos = preg_replace('/[^0-9]/', '', $telefono);
+        if (strlen($digitos) === 11 && strpos($digitos, '0') === 0) {
+            return '58' . substr($digitos, 1);
+        }
+        if (strlen($digitos) === 10 && strpos($digitos, '4') === 0) {
+            return '58' . $digitos;
+        }
+        return $digitos;
+    }
+}
+
+if (!function_exists('registrarNotificacionRepresentante')) {
+    function registrarNotificacionRepresentante($conn, int $idRepresentante, ?int $idEstudiante, string $tipo, string $titulo, string $mensaje): bool {
+        if ($idRepresentante <= 0) {
+            return false;
+        }
+        $fechaAhora = date('Y-m-d H:i:s');
+        $stmt = @$conn->prepare("
+            INSERT INTO notificaciones_representante (id_representante, id_estudiante, tipo, titulo, mensaje, leida, fecha_creacion)
+            VALUES (?, ?, ?, ?, ?, 0, ?)
+        ");
+        if (!$stmt) {
+            return false;
+        }
+        $estId = $idEstudiante ?: null;
+        $stmt->bind_param("iissss", $idRepresentante, $estId, $tipo, $titulo, $mensaje, $fechaAhora);
+        $ok = (bool) $stmt->execute();
+        $stmt->close();
+        return $ok;
     }
 }
 
